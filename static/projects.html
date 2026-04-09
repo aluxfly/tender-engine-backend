@@ -90,6 +90,11 @@
     </div>
 
     <script>
+        // 分页配置
+        const ITEMS_PER_PAGE = 18;
+        let currentPage = 1;
+        let allProjects = [];
+        
         // 动态加载项目数据
         async function loadProjects() {
             try {
@@ -97,58 +102,101 @@
                 const response = await fetch('/api/projects');
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
-                const projects = await response.json();
-                console.log(`API 返回 ${projects.length} 条数据`);
+                allProjects = await response.json();
+                console.log(`API 返回 ${allProjects.length} 条数据`);
                 
-                const container = document.getElementById('projects-container');
                 const countEl = document.querySelector('.font-bold.text-primary');
-                
-                // 更新项目数量
                 if (countEl) {
-                    countEl.textContent = projects.length;
-                    console.log('更新项目数量:', projects.length);
-                } else {
-                    console.warn('未找到项目数量元素');
+                    countEl.textContent = allProjects.length;
+                    console.log('更新项目数量:', allProjects.length);
                 }
                 
-                // 清空加载提示
-                container.innerHTML = '';
+                // 渲染第一页
+                renderPage(1);
+                renderPagination();
                 
-                // 渲染项目卡片
-                projects.forEach((project, index) => {
-                    const card = document.createElement('div');
-                    card.className = 'bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition';
-                    const title = project.name || project.title || '未知项目';
-                    const code = project.project_code || project.id || '无编号';
-                    const amount = project.budget || project.amount || 0;
-                    const date = project.publish_date || project.deadline || '未知日期';
-                    const id = project.id || project.project_code || code;
-                    
-                    console.log(`渲染项目 ${index + 1}:`, title);
-                    
-                    card.innerHTML = `
-                        <h3 class="text-lg font-bold text-gray-800 mb-2">${title}</h3>
-                        <p class="text-sm text-gray-600 mb-4">${code}</p>
-                        <div class="flex justify-between items-center">
-                            <span class="text-primary font-bold">${amount ? '¥' + amount.toLocaleString() : '面议'}</span>
-                            <span class="text-xs text-gray-500">${date}</span>
-                        </div>
-                        <a href="/project-detail?id=${id}" class="mt-4 block text-center bg-primary hover:bg-secondary text-white py-2 rounded-lg transition">查看详情</a>
-                    `;
-                    container.appendChild(card);
-                });
-                
-                console.log(`渲染完成，共 ${projects.length} 个项目`);
-                
-                // 显示分页（如果有需要）
-                if (projects.length > 9) {
-                    document.getElementById('pagination-container').classList.remove('hidden');
-                }
             } catch (error) {
                 console.error('加载失败:', error);
                 document.getElementById('projects-container').innerHTML = 
                     '<div class="text-center text-red-500 col-span-3">加载失败，请刷新重试<br><small>' + error.message + '</small></div>';
             }
+        }
+        
+        // 渲染指定页的数据
+        function renderPage(page) {
+            currentPage = page;
+            const container = document.getElementById('projects-container');
+            container.innerHTML = '';
+            
+            const start = (page - 1) * ITEMS_PER_PAGE;
+            const end = start + ITEMS_PER_PAGE;
+            const projects = allProjects.slice(start, end);
+            
+            console.log(`渲染第 ${page} 页，共 ${projects.length} 个项目`);
+            
+            projects.forEach((project, index) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition';
+                const title = project.name || project.title || '未知项目';
+                const code = project.project_code || project.id || '无编号';
+                const amount = project.budget || project.amount || 0;
+                const date = project.publish_date || project.deadline || '未知日期';
+                const id = project.id || project.project_code || code;
+                
+                card.innerHTML = `
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">${title}</h3>
+                    <p class="text-sm text-gray-600 mb-4">${code}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-primary font-bold">${amount ? '¥' + amount.toLocaleString() : '面议'}</span>
+                        <span class="text-xs text-gray-500">${date}</span>
+                    </div>
+                    <a href="/project-detail?id=${id}" class="mt-4 block text-center bg-primary hover:bg-secondary text-white py-2 rounded-lg transition">查看详情</a>
+                `;
+                container.appendChild(card);
+            });
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // 渲染分页控件
+        function renderPagination() {
+            const totalPages = Math.ceil(allProjects.length / ITEMS_PER_PAGE);
+            const paginationContainer = document.getElementById('pagination-container');
+            
+            if (totalPages <= 1) {
+                paginationContainer.classList.add('hidden');
+                return;
+            }
+            
+            paginationContainer.classList.remove('hidden');
+            const nav = paginationContainer.querySelector('nav');
+            nav.innerHTML = '';
+            
+            // 上一页
+            const prevBtn = document.createElement('button');
+            prevBtn.className = `px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`;
+            prevBtn.textContent = '上一页';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => currentPage > 1 && renderPage(currentPage - 1);
+            nav.appendChild(prevBtn);
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `px-4 py-2 border rounded-lg ${i === currentPage ? 'bg-primary text-white border-primary' : 'border-gray-300 hover:bg-gray-100'}`;
+                pageBtn.textContent = i;
+                pageBtn.onclick = () => renderPage(i);
+                nav.appendChild(pageBtn);
+            }
+            
+            // 下一页
+            const nextBtn = document.createElement('button');
+            nextBtn.className = `px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`;
+            nextBtn.textContent = '下一页';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => currentPage < totalPages && renderPage(currentPage + 1);
+            nav.appendChild(nextBtn);
         }
         
         // 页面加载完成后执行
