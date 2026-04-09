@@ -1,0 +1,41 @@
+2026-04-09 13:13:31,230 - INFO - 数据库初始化完成
+2026-04-09 13:13:33,945 - INFO - ==================================================
+2026-04-09 13:13:33,945 - INFO - 开始执行爬虫任务
+2026-04-09 13:13:33,945 - INFO - ==================================================
+2026-04-09 13:13:33,946 - INFO - 数据库初始化完成
+2026-04-09 13:13:33,946 - INFO - 开始抓取中国政府采购网...
+2026-04-09 13:13:37,134 - WARNING - 请求失败 (尝试 1/3): http://www.ccgp.gov.cn/cggg/zygg/gkzb/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/gkzb/
+2026-04-09 13:13:42,107 - WARNING - 请求失败 (尝试 2/3): http://www.ccgp.gov.cn/cggg/zygg/gkzb/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/gkzb/
+2026-04-09 13:13:49,389 - WARNING - 请求失败 (尝试 3/3): http://www.ccgp.gov.cn/cggg/zygg/gkzb/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/gkzb/
+2026-04-09 13:13:49,389 - ERROR - 请求最终失败：http://www.ccgp.gov.cn/cggg/zygg/gkzb/
+2026-04-09 13:13:52,548 - WARNING - 请求失败 (尝试 1/3): http://www.ccgp.gov.cn/cggg/zygg/jzxtp/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxtp/
+2026-04-09 13:13:57,972 - WARNING - 请求失败 (尝试 2/3): http://www.ccgp.gov.cn/cggg/zygg/jzxtp/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxtp/
+2026-04-09 13:14:05,108 - WARNING - 请求失败 (尝试 3/3): http://www.ccgp.gov.cn/cggg/zygg/jzxtp/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxtp/
+2026-04-09 13:14:05,108 - ERROR - 请求最终失败：http://www.ccgp.gov.cn/cggg/zygg/jzxtp/
+2026-04-09 13:14:08,413 - WARNING - 请求失败 (尝试 1/3): http://www.ccgp.gov.cn/cggg/zygg/jzxcs/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxcs/
+2026-04-09 13:14:13,722 - WARNING - 请求失败 (尝试 2/3): http://www.ccgp.gov.cn/cggg/zygg/jzxcs/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxcs/
+2026-04-09 13:14:21,009 - WARNING - 请求失败 (尝试 3/3): http://www.ccgp.gov.cn/cggg/zygg/jzxcs/ - 403 Client Error: Forbidden for url: http://www.ccgp.gov.cn/cggg/zygg/jzxcs/
+2026-04-09 13:14:21,009 - ERROR - 请求最终失败：http://www.ccgp.gov.cn/cggg/zygg/jzxcs/
+2026-04-09 13:14:21,009 - INFO - 中国政府采购网抓取完成，共 0 条公告
+2026-04-09 13:14:24,009 - INFO - 开始抓取国家电网电子商务平台...
+2026-04-09 13:14:32,397 - INFO - 从 https://ecp.sgcc.com.cn/ecp2.0/portal/#/bid-public-announcement 抓取完成
+2026-04-09 13:14:32,397 - INFO - 国家电网电子商务平台抓取完成，共 0 条公告
+2026-04-09 13:14:32,397 - INFO - ==================================================
+2026-04-09 13:14:32,397 - INFO - 爬虫任务完成：政府采购网 0 条，国家电网 0 条，新增 0 条
+2026-04-09 13:14:32,397 - INFO - ==================================================
+2026-04-09 13:16:30,097 - INFO - ==================================================
+2026-04-09 13:16:30,097 - INFO - 开始执行爬虫任务
+2026-04-09 13:16:30,097 - INFO - ==================================================
+2026-04-09 13:16:30,097 - INFO - 数据库初始化完成
+2026-04-09 13:16:30,097 - INFO - 开始抓取中国政府采购网...
+2026-04-09 13:16:30,645 - INFO - 访问：http://www.ccgp.gov.cn/cggg/zygg/gkzb/
+2026-04-09 13:16:36,223 - INFO - 中国政府采购网抓取完成，共 0 条公告
+2026-04-09 13:16:38,224 - INFO - 开始抓取国家电网电子商务平台...
+2026-04-09 13:16:38,735 - INFO - 访问：https://ecp.sgcc.com.cn/ecp2.0/portal/#/bid-public-announcement
+2026-04-09 13:16:48,196 - INFO - 国家电网电子商务平台抓取完成，共 0 条公告
+2026-04-09 13:16:48,196 - INFO - 真实抓取未获取数据，使用模拟数据...
+2026-04-09 13:16:48,196 - INFO - 生成模拟招标数据...
+2026-04-09 13:16:48,206 - INFO - 保存完成，新增 15/15 条记录
+2026-04-09 13:16:48,206 - INFO - ==================================================
+2026-04-09 13:16:48,206 - INFO - 爬虫任务完成：政府采购网 0 条，国家电网 0 条，新增 15 条
+2026-04-09 13:16:48,207 - INFO - ==================================================
