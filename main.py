@@ -5,6 +5,8 @@ FastAPI 单文件实现
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import random
@@ -37,6 +39,51 @@ app.add_middleware(
 
 # 数据库路径
 DB_PATH = Path(__file__).parent / 'database.db'
+
+# 静态文件目录
+STATIC_DIR = Path(__file__).parent / 'static'
+
+
+# ==================== 前端页面路由 ====================
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_index():
+    """提供首页"""
+    index_path = STATIC_DIR / 'index.html'
+    if index_path.exists():
+        with open(index_path, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    raise HTTPException(status_code=404, detail="Page not found")
+
+
+@app.get("/projects", response_class=HTMLResponse)
+async def serve_projects():
+    """提供项目列表页"""
+    page_path = STATIC_DIR / 'projects.html'
+    if page_path.exists():
+        with open(page_path, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    raise HTTPException(status_code=404, detail="Page not found")
+
+
+@app.get("/project-detail", response_class=HTMLResponse)
+async def serve_project_detail():
+    """提供项目详情页"""
+    page_path = STATIC_DIR / 'project-detail.html'
+    if page_path.exists():
+        with open(page_path, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    raise HTTPException(status_code=404, detail="Page not found")
+
+
+@app.get("/bid", response_class=HTMLResponse)
+async def serve_bid():
+    """提供标书生成页"""
+    page_path = STATIC_DIR / 'bid.html'
+    if page_path.exists():
+        with open(page_path, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    raise HTTPException(status_code=404, detail="Page not found")
 
 
 def get_db_connection():
