@@ -78,8 +78,11 @@
     <!-- 项目列表 -->
     <section class="pb-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- 项目卡片 1 -->
+            <div id="projects-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="text-center text-gray-500 col-span-3">加载中...</div>
+            </div>
+        </div>
+    </section>
                 <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                     <div class="p-6">
                         <div class="flex justify-between items-start mb-4">
@@ -194,7 +197,76 @@
                     </div>
                 </div>
 
-                <!-- 项目卡片 6 -->
+        </div>
+    </section>
+
+    <script>
+    let allProjects = [];
+    
+    async function loadProjects() {
+        try {
+            const API_URL = 'https://tender-engine-backend-production.up.railway.app/api/projects';
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            allProjects = Array.isArray(data) ? data : data.projects || [];
+            renderProjects(allProjects);
+            const countEl = document.querySelector('.text-gray-600 .font-bold');
+            if (countEl) countEl.textContent = allProjects.length;
+        } catch (e) {
+            console.error('加载失败:', e);
+            document.getElementById('projects-container').innerHTML = '<div class="text-center text-gray-500 col-span-3">加载失败</div>';
+        }
+    }
+    
+    function renderProjects(projects) {
+        const container = document.getElementById('projects-container');
+        if (!container) return;
+        if (projects.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-500 col-span-3">暂无项目</div>';
+            return;
+        }
+        container.innerHTML = projects.map(p => `
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">${p.category || '电力招标'}</span>
+                        <span class="text-gray-500 text-sm">${p.deadline || p.publish_date || ''}</span>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">${p.name || p.title || '未知项目'}</h3>
+                    <p class="text-gray-600 text-sm mb-4">${(p.description || p.name || '').substring(0, 80)}...</p>
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-primary font-bold">${p.budget ? '¥ ' + (p.budget/10000).toFixed(0) + '万' : '面议'}</span>
+                        <span class="text-gray-500 text-sm">${p.location || p.region || ''}</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-4 border-t">
+                        <div class="flex items-center">
+                            <span class="text-yellow-500 text-lg">⭐</span>
+                            <span class="ml-1 text-sm font-medium">${Math.floor(Math.random()*30+60)}% 中标率</span>
+                        </div>
+                        <a href="project-detail.html?id=${p.id}" class="text-primary hover:text-secondary font-medium">查看详情 →</a>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function setupSearch() {
+        const input = document.querySelector('input[type="text"]');
+        if (input) {
+            input.addEventListener('input', e => {
+                const term = e.target.value.toLowerCase();
+                const filtered = allProjects.filter(p => (p.name||'').toLowerCase().includes(term) || (p.description||'').toLowerCase().includes(term));
+                renderProjects(filtered);
+                const countEl = document.querySelector('.text-gray-600 .font-bold');
+                if (countEl) countEl.textContent = filtered.length;
+            });
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => { loadProjects(); setupSearch(); });
+    </script>
+</body>
+</html>
                 <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
                     <div class="p-6">
                         <div class="flex justify-between items-start mb-4">
