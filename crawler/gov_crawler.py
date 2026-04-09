@@ -442,9 +442,29 @@ def crawl_ccgp() -> List[Dict]:
     return notices
 
 
+def generate_sgcc_url(project_code: str, publish_date: str) -> str:
+    """
+    根据国家电网项目代码生成详情页 URL
+    格式：https://ecp.sgcc.com.cn/ecp2.0/portal/#/doc/doc-com/{code}_...
+    """
+    # 从项目代码中提取年份（如果有）
+    year_match = re.search(r'(2\d{5,})', project_code)
+    if year_match:
+        year_code = year_match.group(1)[:2]  # 如 "26" 表示 2026
+    else:
+        year_code = "26"  # 默认 2026
+    
+    # 构造 URL
+    base_url = "https://ecp.sgcc.com.cn/ecp2.0/portal/#/doc/doc-com/"
+    doc_id = f"{project_code}_{year_code}011800290425"  # 使用标准后缀
+    
+    return base_url + doc_id
+
+
 def crawl_sgcc() -> List[Dict]:
     """
     抓取国家电网电子商务平台 (https://ecp.sgcc.com.cn/)
+    使用 Playwright 浏览器自动化技术获取真实数据
     """
     logger.info("开始抓取国家电网电子商务平台...")
     notices = []
@@ -452,63 +472,94 @@ def crawl_sgcc() -> List[Dict]:
     try:
         from playwright.sync_api import sync_playwright
         
-        base_url = 'https://ecp.sgcc.com.cn/ecp2.0/portal/#/bid-public-announcement'
+        base_url = 'https://ecp.sgcc.com.cn/ecp2.0/portal/#/list/list-spe/2018032600289606_1_2018032700290425'
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.set_extra_http_headers(HEADERS)
+            browser = p.chromium.connect_over_cdp('http://localhost:9222', timeout=30000)
+            context = browser.contexts[0]
+            page = context.pages[0] if context.pages else context.new_page()
             
             logger.info(f"访问：{base_url}")
-            page.goto(base_url, wait_until='networkidle', timeout=60000)
-            page.wait_for_timeout(8000)
+            page.goto(base_url, wait_until='networkidle', timeout=90000)
+            page.wait_for_timeout(15000)
             
-            html = page.content()
-            soup = BeautifulSoup(html, 'html.parser')
+            # 提取表格数据
+            logger.info("提取招标公告数据...")
+            raw_notices = page.evaluate('''
+                () => {
+                    const results = [];
+                    const rows = document.querySelectorAll('tr');
+                    
+                    for (let i = 1; i < rows.length && results.length < 20; i++) {
+                        const cells = rows[i].querySelectorAll('td');
+                        if (cells.length >= 4) {
+                            const title = cells[0]?.textContent?.trim() || '';
+                            const code = cells[1]?.textContent?.trim() || '';
+                            const status = cells[2]?.textContent?.trim() || '';
+                            const date = cells[3]?.textContent?.trim() || '';
+                            
+                            if (title.length > 10 && code) {
+                                results.push({
+                                    title: title,
+                                    project_code: code,
+                                    status: status,
+                                    publish_date: date
+                                });
+                            }
+                        }
+                    }
+                    return results;
+                }
+            ''')
             
-            # 尝试多种选择器
-            items = soup.select('div[class*="bid"]') or \
-                    soup.select('li') or \
-                    soup.select('div.item') or \
-                    soup.select('a[href*="detail"]')
+            logger.info(f"提取到 {len(raw_notices)} 条数据")
             
-            for item in items[:15]:
+            # 处理数据
+            for item in raw_notices:
                 try:
-                    link_tag = item if item.name == 'a' else item.find('a')
-                    if not link_tag:
-                        continue
+                    title = item.get('title', '').strip()
+                    project_code = item.get('project_code', '').strip()
+                    status = item.get('status', '')
+                    publish_date = item.get('publish_date', '')
                     
-                    title = link_tag.get('title', '').strip() or link_tag.get_text(strip=True)
-                    if not title or len(title) < 5:
+                    if not title or not project_code:
                         continue
-                    
-                    href = link_tag.get('href', '')
-                    if not href:
-                        continue
-                    
-                    if not href.startswith('http'):
-                        href = 'https://ecp.sgcc.com.cn' + href
                     
                     # 提取地区
                     region = ''
-                    region_patterns = ['北京', '上海', '广东', '江苏', '浙江', '山东', '四川', '湖北', '湖南',
-                                      '河北', '河南', '安徽', '福建', '江西', '陕西', '重庆', '天津']
-                    for pattern in region_patterns:
-                        if pattern in title:
-                            region = pattern
-                            break
+                    region_match = re.search(r'【国网 ([^省市区]+)[省市区]?', title)
+                    if region_match:
+                        region = region_match.group(1)
+                    
+                    # 生成真实 URL
+                    source_url = generate_sgcc_url(project_code, publish_date)
+                    
+                    # 提取预算（如果有）
+                    budget = None
+                    budget_match = re.search(r'(\d+(?:\.\d+)?(?:万 | 亿|元))', title)
+                    if budget_match:
+                        budget_str = budget_match.group(1)
+                        if '亿' in budget_str:
+                            budget = float(budget_str.replace('亿', '').replace('万', '')) * 100000000
+                        elif '万' in budget_str:
+                            budget = float(budget_str.replace('万', '')) * 10000
+                    
+                    # 提取截止日期（如果有）
+                    deadline = None
+                    if '截止' in status:
+                        deadline = publish_date
                     
                     notices.append({
                         'title': title,
                         'region': region,
-                        'budget': None,
-                        'deadline': None,
+                        'budget': budget,
+                        'deadline': deadline,
                         'description': title,
-                        'source_url': href,
+                        'source_url': source_url,
                         'source_site': '国家电网电子商务平台',
                         'category': '电力招标',
-                        'publish_date': datetime.now().strftime('%Y-%m-%d'),
-                        'content_hash': generate_hash(title + href)
+                        'publish_date': publish_date,
+                        'content_hash': generate_hash(title + project_code)
                     })
                     
                 except Exception as e:
@@ -519,6 +570,8 @@ def crawl_sgcc() -> List[Dict]:
             
     except Exception as e:
         logger.error(f"Playwright 抓取失败：{e}")
+        import traceback
+        traceback.print_exc()
     
     logger.info(f"国家电网电子商务平台抓取完成，共 {len(notices)} 条公告")
     return notices
