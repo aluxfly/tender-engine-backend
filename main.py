@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import List, Optional
 import random
@@ -22,10 +23,24 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动时初始化数据库
+    logger.info("应用启动中...")
+    init_database()
+    logger.info("应用启动完成")
+    yield
+    # 关闭时清理（如有需要）
+    logger.info("应用关闭")
+
+
 app = FastAPI(
     title="投标公司赚钱引擎 API",
     description="MVP 版本 - 项目查询、中标预测、标书生成",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # 启用 CORS
@@ -91,6 +106,76 @@ def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def init_database():
+    """初始化数据库 - 如果为空则加载初始数据"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 检查表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bid_notices'")
+        if not cursor.fetchone():
+            logger.info("创建 bid_notices 表...")
+            cursor.execute('''
+                CREATE TABLE bid_notices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    region TEXT,
+                    budget REAL,
+                    deadline TEXT,
+                    description TEXT,
+                    source_url TEXT,
+                    source_site TEXT,
+                    category TEXT,
+                    publish_date TEXT,
+                    crawl_time TEXT DEFAULT CURRENT_TIMESTAMP,
+                    content_hash TEXT
+                )
+            ''')
+            conn.commit()
+        
+        # 检查数据是否为空
+        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
+        count = cursor.fetchone()['count']
+        
+        if count == 0:
+            logger.info("数据库为空，加载初始数据...")
+            initial_data_path = Path(__file__).parent / 'initial_data.json'
+            
+            if initial_data_path.exists():
+                import json
+                with open(initial_data_path, 'r', encoding='utf-8') as f:
+                    initial_data = json.load(f)
+                
+                for item in initial_data:
+                    cursor.execute('''
+                        INSERT INTO bid_notices 
+                        (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        item['title'],
+                        item['region'],
+                        item['budget'],
+                        item['deadline'],
+                        item['description'],
+                        item['source_url'],
+                        item['source_site'],
+                        item['category'],
+                        item['publish_date']
+                    ))
+                
+                conn.commit()
+                logger.info(f"已加载 {len(initial_data)} 条初始数据")
+            else:
+                logger.warning("初始数据文件不存在")
+        
+        conn.close()
+        logger.info(f"数据库初始化完成，当前数据量：{count if count > 0 else len(initial_data)} 条")
+        
+    except Exception as e:
+        logger.error(f"数据库初始化失败：{e}")
 
 
 # ==================== 模拟数据已删除 ====================
