@@ -93,100 +93,8 @@ def get_db_connection():
     return conn
 
 
-# ==================== 模拟数据 (备用) ====================
-
-PROJECTS = [
-    {
-        "id": 1,
-        "name": "智慧城市交通管理系统",
-        "budget": 2800000,
-        "deadline": "2026-05-15",
-        "category": "软件开发",
-        "location": "北京",
-        "description": "建设城市级智能交通管理平台"
-    },
-    {
-        "id": 2,
-        "name": "企业 ERP 系统升级",
-        "budget": 1500000,
-        "deadline": "2026-04-30",
-        "category": "软件开发",
-        "location": "上海",
-        "description": "现有 ERP 系统功能扩展与性能优化"
-    },
-    {
-        "id": 3,
-        "name": "数据中心网络改造",
-        "budget": 3200000,
-        "deadline": "2026-06-01",
-        "category": "基础设施",
-        "location": "深圳",
-        "description": "数据中心网络架构升级与设备更新"
-    },
-    {
-        "id": 4,
-        "name": "移动办公平台建设",
-        "budget": 980000,
-        "deadline": "2026-05-20",
-        "category": "软件开发",
-        "location": "杭州",
-        "description": "企业移动办公 APP 及后台管理系统"
-    },
-    {
-        "id": 5,
-        "name": "AI 客服系统开发",
-        "budget": 1200000,
-        "deadline": "2026-04-25",
-        "category": "人工智能",
-        "location": "广州",
-        "description": "基于大模型的智能客服系统"
-    },
-    {
-        "id": 6,
-        "name": "云存储平台建设",
-        "budget": 2100000,
-        "deadline": "2026-05-10",
-        "category": "云计算",
-        "location": "成都",
-        "description": "企业级云存储与文件管理系统"
-    },
-    {
-        "id": 7,
-        "name": "物联网监控平台",
-        "budget": 1800000,
-        "deadline": "2026-06-15",
-        "category": "物联网",
-        "location": "武汉",
-        "description": "工业设备物联网监控与预警系统"
-    },
-    {
-        "id": 8,
-        "name": "大数据分析平台",
-        "budget": 2500000,
-        "deadline": "2026-05-05",
-        "category": "大数据",
-        "location": "南京",
-        "description": "企业数据仓库与 BI 分析平台"
-    },
-    {
-        "id": 9,
-        "name": "网络安全加固项目",
-        "budget": 1600000,
-        "deadline": "2026-04-28",
-        "category": "网络安全",
-        "location": "西安",
-        "description": "企业网络安全体系加固与渗透测试"
-    },
-    {
-        "id": 10,
-        "name": "区块链供应链系统",
-        "budget": 3500000,
-        "deadline": "2026-06-20",
-        "category": "区块链",
-        "location": "天津",
-        "description": "基于区块链的供应链追溯管理平台"
-    }
-]
+# ==================== 模拟数据已删除 ====================
+# 只使用数据库真实数据，不再提供模拟数据降级
 
 
 # ==================== 请求/响应模型 ====================
@@ -301,25 +209,11 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
                 'publish_date': row['publish_date']
             })
         
-        # 如果数据库为空，返回模拟数据
-        if not results:
-            results = PROJECTS[:limit]
-            if category:
-                results = [p for p in results if p["category"] == category]
-            if location:
-                results = [p for p in results if p["location"] == location]
-        
         return results
         
     except Exception as e:
         logger.error(f"获取项目列表失败：{e}")
-        # 降级返回模拟数据
-        results = PROJECTS[:limit]
-        if category:
-            results = [p for p in results if p["category"] == category]
-        if location:
-            results = [p for p in results if p["location"] == location]
-        return results
+        raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
 
 
 @app.post("/api/predict", response_model=PredictResponse)
@@ -329,11 +223,22 @@ def predict_bid_success(request: PredictRequest):
     
     返回高/中/低三种预测结果
     """
-    # 查找项目
-    project = next((p for p in PROJECTS if p["id"] == request.project_id), None)
-    
-    if not project:
-        raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, title FROM bid_notices WHERE id = ?', (request.project_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
+        
+        project_name = row['title']
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询项目失败：{e}")
+        raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
     
     # 随机生成预测结果
     predictions = [
@@ -346,7 +251,7 @@ def predict_bid_success(request: PredictRequest):
     
     return PredictResponse(
         project_id=request.project_id,
-        project_name=project["name"],
+        project_name=project_name,
         prediction=result["level"],
         confidence=result["confidence"],
         advice=result["advice"]
@@ -360,11 +265,30 @@ def generate_bid_document(request: BidGenerateRequest):
     
     返回可下载的 .docx 文件
     """
-    # 查找项目
-    project = next((p for p in PROJECTS if p["id"] == request.project_id), None)
-    
-    if not project:
-        raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, title, budget, deadline, category, region, description FROM bid_notices WHERE id = ?', (request.project_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
+        
+        project = {
+            'id': row['id'],
+            'name': row['title'],
+            'budget': row['budget'],
+            'deadline': row['deadline'],
+            'category': row['category'],
+            'location': row['region'],
+            'description': row['description']
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询项目失败：{e}")
+        raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
     
     # 创建 Word 文档
     doc = Document()
