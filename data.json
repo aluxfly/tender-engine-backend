@@ -1,182 +1,20 @@
 [
-  {
-    "id": 101,
-    "name": "深圳市公安局移动布控球采购项目",
-    "type": "布控球",
-    "publishDate": "2026-04-12",
-    "budget": 1280000,
-    "company": "深圳市公安局",
-    "province": "广东省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_128456.htm"
-  },
-  {
-    "id": 102,
-    "name": "杭州市交警支队便携式布控球设备招标",
-    "type": "布控球",
-    "publishDate": "2026-04-11",
-    "budget": 850000,
-    "company": "杭州市公安局交通警察支队",
-    "province": "浙江省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_127389.htm"
-  },
-  {
-    "id": 103,
-    "name": "成都市应急管理局无线视频监控布控球采购",
-    "type": "布控球",
-    "publishDate": "2026-04-10",
-    "budget": 620000,
-    "company": "成都市应急管理局",
-    "province": "四川省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_126234.htm"
-  },
-  {
-    "id": 104,
-    "name": "武汉市城管执法局移动执法布控球系统招标",
-    "type": "布控球",
-    "publishDate": "2026-04-09",
-    "budget": 950000,
-    "company": "武汉市城市管理执法委员会",
-    "province": "湖北省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_125178.htm"
-  },
-  {
-    "id": 105,
-    "name": "南京市公安局安防监控布控球设备采购",
-    "type": "布控球",
-    "publishDate": "2026-04-08",
-    "budget": 1150000,
-    "company": "南京市公安局",
-    "province": "江苏省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_124056.htm"
-  },
-  {
-    "id": 106,
-    "name": "重庆市交通局临时布控球系统招标",
-    "type": "布控球",
-    "publishDate": "2026-04-07",
-    "budget": 780000,
-    "company": "重庆市交通运输局",
-    "province": "重庆市",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_123945.htm"
-  },
-  {
-    "id": 107,
-    "name": "广州市公安局 4G 布控球终端采购",
-    "type": "布控球",
-    "publishDate": "2026-04-06",
-    "budget": 560000,
-    "company": "广州市公安局",
-    "province": "广东省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_122834.htm"
-  },
-  {
-    "id": 108,
-    "name": "西安高新区高清布控球摄像机招标",
-    "type": "布控球",
-    "publishDate": "2026-04-05",
-    "budget": 890000,
-    "company": "西安高新技术产业开发区管委会",
-    "province": "陕西省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_121723.htm"
-  },
-  {
-    "id": 201,
-    "name": "北京市大数据局物联网卡流量套餐采购项目",
-    "type": "物联网卡",
-    "publishDate": "2026-04-12",
-    "budget": 2800000,
-    "company": "北京市大数据管理局",
-    "province": "北京市",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_228456.htm"
-  },
-  {
-    "id": 202,
-    "name": "上海市通信管理局 5G 物联网卡招标",
-    "type": "物联网卡",
-    "publishDate": "2026-04-11",
-    "budget": 3500000,
-    "company": "上海市通信管理局",
-    "province": "上海市",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_227389.htm"
-  },
-  {
-    "id": 203,
-    "name": "深圳市水务集团 NB-IoT 物联网卡采购",
-    "type": "物联网卡",
-    "publishDate": "2026-04-10",
-    "budget": 1200000,
-    "company": "深圳市水务集团有限公司",
-    "province": "广东省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_226234.htm"
-  },
-  {
-    "id": 204,
-    "name": "国网江苏省电力公司物联网 SIM 卡招标",
-    "type": "物联网卡",
-    "publishDate": "2026-04-09",
-    "budget": 1850000,
-    "company": "国网江苏省电力有限公司",
-    "province": "江苏省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_225178.htm"
-  },
-  {
-    "id": 205,
-    "name": "成都市燃气集团无线通信模块（物联网卡）采购",
-    "type": "物联网卡",
-    "publishDate": "2026-04-08",
-    "budget": 980000,
-    "company": "成都城市燃气有限责任公司",
-    "province": "四川省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_224056.htm"
-  },
-  {
-    "id": 206,
-    "name": "浙江省交通厅物联网流量卡套餐招标",
-    "type": "物联网卡",
-    "publishDate": "2026-04-07",
-    "budget": 2200000,
-    "company": "浙江省交通运输厅",
-    "province": "浙江省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_223945.htm"
-  },
-  {
-    "id": 207,
-    "name": "武汉市气象局 4G 物联网卡采购招标",
-    "type": "物联网卡",
-    "publishDate": "2026-04-06",
-    "budget": 650000,
-    "company": "武汉市气象局",
-    "province": "湖北省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_222834.htm"
-  },
-  {
-    "id": 208,
-    "name": "广州市智能水表物联网卡服务项目",
-    "type": "物联网卡",
-    "publishDate": "2026-04-05",
-    "budget": 1450000,
-    "company": "广州自来水有限公司",
-    "province": "广东省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_221723.htm"
-  },
-  {
-    "id": 209,
-    "name": "重庆市共享单车物联网卡采购项目",
-    "type": "物联网卡",
-    "publishDate": "2026-04-04",
-    "budget": 890000,
-    "company": "重庆市交通运输委员会",
-    "province": "重庆市",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_220612.htm"
-  },
-  {
-    "id": 210,
-    "name": "杭州市教育局校园安全物联网卡招标",
-    "type": "物联网卡",
-    "publishDate": "2026-04-03",
-    "budget": 720000,
-    "company": "杭州市教育局",
-    "province": "浙江省",
-    "url": "http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_219501.htm"
-  }
+  {"id":101,"name":"深圳市公安局移动布控球设备采购项目","type":"布控球","publishDate":"2026-04-10","budget":1280000,"company":"深圳市公安局","province":"广东省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456789.htm"},
+  {"id":102,"name":"杭州市公安局交通警察支队便携式布控球采购","type":"布控球","publishDate":"2026-04-09","budget":850000,"company":"杭州市公安局交通警察支队","province":"浙江省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456790.htm"},
+  {"id":103,"name":"成都市应急管理局无线视频监控布控球系统","type":"布控球","publishDate":"2026-04-08","budget":620000,"company":"成都市应急管理局","province":"四川省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456791.htm"},
+  {"id":104,"name":"武汉市城市管理执法委员会移动执法布控球","type":"布控球","publishDate":"2026-04-07","budget":950000,"company":"武汉市城市管理执法委员会","province":"湖北省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456792.htm"},
+  {"id":105,"name":"南京市公安局安防监控布控球设备","type":"布控球","publishDate":"2026-04-06","budget":1150000,"company":"南京市公安局","province":"江苏省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456793.htm"},
+  {"id":106,"name":"重庆市交通运输局临时布控球系统","type":"布控球","publishDate":"2026-04-05","budget":780000,"company":"重庆市交通运输局","province":"重庆市","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456794.htm"},
+  {"id":107,"name":"广州市公安局 4G 布控球终端采购","type":"布控球","publishDate":"2026-04-04","budget":560000,"company":"广州市公安局","province":"广东省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456795.htm"},
+  {"id":108,"name":"西安高新技术产业开发区布控球摄像机","type":"布控球","publishDate":"2026-04-03","budget":890000,"company":"西安高新技术产业开发区管委会","province":"陕西省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_18456796.htm"},
+  {"id":201,"name":"北京市大数据管理局物联网卡流量服务采购","type":"物联网卡","publishDate":"2026-04-10","budget":2800000,"company":"北京市大数据管理局","province":"北京市","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456789.htm"},
+  {"id":202,"name":"上海市通信管理局 5G 物联网卡服务","type":"物联网卡","publishDate":"2026-04-09","budget":3500000,"company":"上海市通信管理局","province":"上海市","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456790.htm"},
+  {"id":203,"name":"深圳市水务集团 NB-IoT 物联网卡","type":"物联网卡","publishDate":"2026-04-08","budget":1200000,"company":"深圳市水务集团有限公司","province":"广东省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456791.htm"},
+  {"id":204,"name":"国网江苏省电力有限公司物联网 SIM 卡","type":"物联网卡","publishDate":"2026-04-07","budget":1850000,"company":"国网江苏省电力有限公司","province":"江苏省","url":"https://ecp.sgcc.com.cn/ecp2.0/portal/#/doc/doc-com/204567789_20260407"},
+  {"id":205,"name":"成都城市燃气物联网通信模块采购","type":"物联网卡","publishDate":"2026-04-06","budget":980000,"company":"成都城市燃气有限责任公司","province":"四川省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456793.htm"},
+  {"id":206,"name":"浙江省交通运输厅物联网流量卡服务","type":"物联网卡","publishDate":"2026-04-05","budget":2200000,"company":"浙江省交通运输厅","province":"浙江省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456794.htm"},
+  {"id":207,"name":"武汉市气象局 4G 物联网卡采购","type":"物联网卡","publishDate":"2026-04-04","budget":650000,"company":"武汉市气象局","province":"湖北省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456795.htm"},
+  {"id":208,"name":"广州自来水有限公司智能水表物联网卡","type":"物联网卡","publishDate":"2026-04-03","budget":1450000,"company":"广州自来水有限公司","province":"广东省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456796.htm"},
+  {"id":209,"name":"重庆市共享单车物联网卡服务项目","type":"物联网卡","publishDate":"2026-04-02","budget":890000,"company":"重庆市交通运输委员会","province":"重庆市","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456797.htm"},
+  {"id":210,"name":"杭州市教育局校园安全物联网卡","type":"物联网卡","publishDate":"2026-04-01","budget":720000,"company":"杭州市教育局","province":"浙江省","url":"http://www.ccgp.gov.cn/cggg/zygg/gkzb/202604/t202604_28456798.htm"}
 ]
