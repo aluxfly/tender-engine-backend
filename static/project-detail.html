@@ -250,7 +250,15 @@
                 document.getElementById('projectDate').textContent = project.publishDate;
                 document.getElementById('projectProvince').textContent = project.province;
                 document.getElementById('projectType').textContent = project.type;
-                document.getElementById('sourceLink').href = project.url;
+                
+                // 如果有原始链接，显示"查看原文"按钮
+                if (project.url && project.url !== '#') {
+                    const sourceLink = document.getElementById('sourceLink');
+                    if (sourceLink) {
+                        sourceLink.href = project.url;
+                        sourceLink.style.display = 'inline-block';
+                    }
+                }
                 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
