@@ -81,32 +81,18 @@
 
                         <div class="mb-6">
                             <h2 class="text-lg font-bold mb-3">项目概述</h2>
-                            <p class="text-gray-700 leading-relaxed">
-                                本项目为北京市朝阳区政府办公楼装修工程，总建筑面积约 5000 平方米。装修范围包括办公区域、会议室、接待室、休息区、卫生间等公共区域。
-                                要求采用环保材料，符合绿色建筑标准，工期 90 日历天。投标人需具备建筑装修装饰工程专业承包二级及以上资质。
+                            <p id="projectDescription" class="text-gray-700 leading-relaxed">
+                                加载中...
                             </p>
                         </div>
 
                         <div class="mb-6">
-                            <h2 class="text-lg font-bold mb-3">招标范围</h2>
+                            <h2 class="text-lg font-bold mb-3">基本信息</h2>
                             <ul class="list-disc list-inside text-gray-700 space-y-2">
-                                <li>室内墙面、地面、天花装修工程</li>
-                                <li>电气照明系统安装工程</li>
-                                <li>给排水改造工程</li>
-                                <li>空调通风系统工程</li>
-                                <li>智能化系统集成工程</li>
-                                <li>消防设施改造工程</li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h2 class="text-lg font-bold mb-3">资质要求</h2>
-                            <ul class="list-disc list-inside text-gray-700 space-y-2">
-                                <li>建筑装修装饰工程专业承包二级及以上资质</li>
-                                <li>安全生产许可证在有效期内</li>
-                                <li>近三年类似项目业绩不少于 3 个</li>
-                                <li>项目经理具备二级及以上注册建造师资格</li>
-                                <li>具有良好的商业信誉和财务状况</li>
+                                <li>项目编号：自动生成</li>
+                                <li>招标方式：公开招标</li>
+                                <li>资金来源：财政资金</li>
+                                <li>详情请点击"查看原文"获取完整招标文件</li>
                             </ul>
                         </div>
                     </div>
@@ -250,6 +236,10 @@
                 document.getElementById('projectDate').textContent = project.publishDate;
                 document.getElementById('projectProvince').textContent = project.province;
                 document.getElementById('projectType').textContent = project.type;
+                
+                // 生成简单描述
+                const desc = `本项目为${project.company}的${project.name}，预算金额${(project.budget/10000).toFixed(0)}万元，发布于${project.publishDate}。详细信息请查看原始招标公告。`;
+                document.getElementById('projectDescription').textContent = desc;
                 
                 // 如果有原始链接，显示"查看原文"按钮
                 if (project.url && project.url !== '#') {
