@@ -350,14 +350,6 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
     except Exception as e:
         logger.error(f"筛选项目失败：{e}")
         return []
-                'publish_date': row['publish_date']
-            })
-        
-        return results
-        
-    except Exception as e:
-        logger.error(f"获取项目列表失败：{e}")
-        raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
 
 
 @app.post("/api/predict", response_model=PredictResponse)
