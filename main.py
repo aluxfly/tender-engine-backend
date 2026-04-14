@@ -295,6 +295,65 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
             })
         
         return results
+    
+    except Exception as e:
+        logger.error(f"获取项目失败：{e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/filter")
+def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] = None):
+    """
+    筛选项目（物联网卡/布控球）
+    
+    - keywords: 关键词，逗号分隔
+    - project_type: 项目类型（物联网卡/布控球）
+    """
+    try:
+        # 读取示例数据文件
+        import json
+        data_file = Path('/root/.openclaw/workspace-pm/data/物联网卡布控球清单.json')
+        
+        if not data_file.exists():
+            return []
+        
+        with open(data_file, 'r', encoding='utf-8') as f:
+            all_projects = json.load(f)
+        
+        # 筛选逻辑
+        if not keywords and not project_type:
+            return all_projects[:15]  # 默认返回 15 条
+        
+        filtered = []
+        keyword_list = keywords.split(',') if keywords else []
+        
+        for project in all_projects:
+            match = False
+            
+            # 按类型筛选
+            if project_type and project.get('type') == project_type:
+                match = True
+            
+            # 按关键词筛选
+            if keyword_list:
+                project_name = project.get('name', '').lower()
+                for kw in keyword_list:
+                    if kw.lower() in project_name:
+                        match = True
+                        break
+            
+            if match:
+                filtered.append(project)
+        
+        return filtered[:15]  # 最多返回 15 条
+    
+    except Exception as e:
+        logger.error(f"筛选项目失败：{e}")
+        return []
+                'publish_date': row['publish_date']
+            })
+        
+        return results
         
     except Exception as e:
         logger.error(f"获取项目列表失败：{e}")
