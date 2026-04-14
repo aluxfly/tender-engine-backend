@@ -312,7 +312,7 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
     try:
         # 读取示例数据文件
         import json
-        data_file = Path('/root/.openclaw/workspace-pm/data/物联网卡布控球清单.json')
+        data_file = Path(__file__).parent / 'data.json'
         
         if not data_file.exists():
             return []
