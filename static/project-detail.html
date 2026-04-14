@@ -24,12 +24,12 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <a href="/" class="text-2xl font-bold text-primary">🎯 投标引擎</a>
+                    <a href="index.html" class="text-2xl font-bold text-primary">🎯 投标引擎</a>
                 </div>
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="/" class="text-gray-700 hover:text-primary font-medium">首页</a>
-                    <a href="/projects" class="text-primary font-medium">项目列表</a>
-                    <a href="/bid" class="text-gray-700 hover:text-primary font-medium">标书生成</a>
+                    <a href="index.html" class="text-gray-700 hover:text-primary font-medium">首页</a>
+                    <a href="projects.html" class="text-primary font-medium">项目列表</a>
+                    <a href="bid.html" class="text-gray-700 hover:text-primary font-medium">标书生成</a>
                     <button class="bg-primary hover:bg-secondary text-white px-6 py-2 rounded-lg font-medium transition">立即试用</button>
                 </div>
             </div>
@@ -40,7 +40,7 @@
     <section class="bg-white py-4">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav class="flex text-sm text-gray-600">
-                <a href="/projects" class="hover:text-primary">项目列表</a>
+                <a href="projects.html" class="hover:text-primary">项目列表</a>
                 <span class="mx-2">/</span>
                 <span class="text-gray-900 font-medium">项目详情</span>
             </nav>
@@ -56,30 +56,30 @@
                     <div class="bg-white rounded-xl shadow-lg p-8 mb-6">
                         <div class="flex justify-between items-start mb-6">
                             <div>
-                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium" id="project-category">建筑工程</span>
-                                <h1 class="text-2xl font-bold mt-3" id="project-name">北京市朝阳区办公楼装修工程</h1>
+                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">建筑工程</span>
+                                <h1 class="text-2xl font-bold mt-3">北京市朝阳区办公楼装修工程</h1>
                             </div>
-                            <span class="bg-red-100 text-red-800 px-4 py-2 rounded-lg font-bold" id="project-budget">¥ 850 万</span>
+                            <span class="bg-red-100 text-red-800 px-4 py-2 rounded-lg font-bold">¥ 850 万</span>
                         </div>
 
                         <div class="grid md:grid-cols-3 gap-4 mb-6">
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <div class="text-gray-600 text-sm mb-1">招标单位</div>
-                                <div class="font-medium" id="project-client">北京市朝阳区政府</div>
+                                <div class="font-medium">北京市朝阳区政府</div>
                             </div>
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <div class="text-gray-600 text-sm mb-1">截止日期</div>
-                                <div class="font-medium" id="project-deadline">2026-04-15</div>
+                                <div class="font-medium">2026-04-15</div>
                             </div>
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <div class="text-gray-600 text-sm mb-1">项目地点</div>
-                                <div class="font-medium" id="project-location">北京市朝阳区</div>
+                                <div class="font-medium">北京市朝阳区</div>
                             </div>
                         </div>
 
                         <div class="mb-6">
                             <h2 class="text-lg font-bold mb-3">项目概述</h2>
-                            <p class="text-gray-700 leading-relaxed" id="project-description">
+                            <p class="text-gray-700 leading-relaxed">
                                 本项目为北京市朝阳区政府办公楼装修工程，总建筑面积约 5000 平方米。装修范围包括办公区域、会议室、接待室、休息区、卫生间等公共区域。
                                 要求采用环保材料，符合绿色建筑标准，工期 90 日历天。投标人需具备建筑装修装饰工程专业承包二级及以上资质。
                             </p>
@@ -160,7 +160,7 @@
                                 </svg>
                                 <div class="absolute inset-0 flex items-center justify-center">
                                     <div class="text-center">
-                                        <div class="text-3xl font-bold text-primary" id="win-rate">85%</div>
+                                        <div class="text-3xl font-bold text-primary">85%</div>
                                         <div class="text-sm text-gray-600">中标率</div>
                                     </div>
                                 </div>
@@ -173,7 +173,7 @@
                                 <span class="font-bold text-green-600">95%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-500 h-2 rounded-full" style="width: 95%" id="win-rate-bar"></div>
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 95%"></div>
                             </div>
 
                             <div class="flex justify-between items-center">
@@ -211,69 +211,13 @@
                             </ul>
                         </div>
 
-                        <a href="#" id="source-link" target="_blank" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-center block transition">📄 查看原始公告</a>
-
-                        <a href="/bid" class="w-full bg-primary hover:bg-secondary text-white py-3 rounded-lg font-bold text-center block transition">生成标书</a>
+                        <a href="bid.html" class="w-full bg-primary hover:bg-secondary text-white py-3 rounded-lg font-bold text-center block transition">生成标书</a>
                         <button class="w-full mt-3 border-2 border-primary text-primary hover:bg-primary hover:text-white py-3 rounded-lg font-bold transition">加入收藏</button>
                     </div>
                 </div>
             </div>
         </div>
     </section>
-
-    <script>
-    const API_URL = 'https://tender-engine-backend-production.up.railway.app/api/projects';
-    let projectId = null;
-    let project = null;
-    
-    function getParam(name) {
-        const params = new URLSearchParams(window.location.search);
-        return params.get(name);
-    }
-    
-    async function loadProject() {
-        projectId = getParam('id');
-        if (!projectId) {
-            document.getElementById('project-container').innerHTML = '<div class="text-center text-red-500">缺少项目 ID 参数</div>';
-            return;
-        }
-        try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-            project = data.find(p => p.id == projectId);
-            if (!project) {
-                document.getElementById('project-container').innerHTML = '<div class="text-center text-red-500">项目不存在</div>';
-                return;
-            }
-            renderProject(project);
-        } catch (e) {
-            console.error('加载失败:', e);
-            document.getElementById('project-container').innerHTML = '<div class="text-center text-red-500">加载失败</div>';
-        }
-    }
-    
-    function renderProject(p) {
-        document.title = (p.name || '项目详情') + ' - 投标引擎';
-        document.getElementById('project-name').textContent = p.name || '未知项目';
-        document.getElementById('project-category').textContent = p.category || '电力招标';
-        document.getElementById('project-budget').textContent = p.budget ? '¥ ' + (p.budget/10000).toFixed(0) + '万' : '面议';
-        document.getElementById('project-deadline').textContent = p.deadline || p.publish_date || '暂无';
-        document.getElementById('project-location').textContent = p.location || '暂无';
-        document.getElementById('project-description').textContent = p.description || '暂无描述';
-        const sourceLink = document.getElementById('source-link');
-        if (p.source_url) {
-            sourceLink.href = p.source_url;
-            sourceLink.style.display = 'block';
-        } else {
-            sourceLink.style.display = 'none';
-        }
-        const winRate = Math.floor(Math.random() * 30 + 60);
-        document.getElementById('win-rate').textContent = winRate + '%';
-        document.getElementById('win-rate-bar').style.width = winRate + '%';
-    }
-    
-    document.addEventListener('DOMContentLoaded', loadProject);
-    </script>
 
     <!-- 页脚 -->
     <footer class="bg-gray-800 text-white py-12">

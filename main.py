@@ -52,6 +52,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 挂载静态文件（前端页面）
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 # 数据库路径
 DB_PATH = Path(__file__).parent / 'database.db'
 
