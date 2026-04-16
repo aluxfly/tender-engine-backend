@@ -3,110 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>招标项目 - 物联网招标助手</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>项目列表 - 投标引擎</title>
+    <link rel="stylesheet" href="notion-style.css">
 </head>
-<body class="bg-gray-50">
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <a href="index.html" class="text-2xl font-bold text-primary">📡 物联网招标助手</a>
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="index.html" class="text-gray-700 hover:text-primary font-medium">首页</a>
-                    <a href="projects" class="text-primary font-medium">项目列表</a>
-                    <a href="bid.html" class="text-gray-700 hover:text-primary font-medium">标书生成</a>
-                </div>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <a href="index.html" class="navbar-brand">🎯 投标引擎</a>
+            <div style="display: flex; gap: 24px; align-items: center;">
+                <a href="index.html" style="color: var(--notion-text-primary); text-decoration: none;">首页</a>
+                <a href="projects.html" style="color: var(--notion-accent-blue); text-decoration: none; font-weight: 500;">项目列表</a>
+                <a href="bid.html" style="color: var(--notion-text-primary); text-decoration: none;">标书生成</a>
             </div>
         </div>
     </nav>
 
-    <section class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-12">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <h1 class="text-3xl font-bold">物联网卡 & 布控球招标</h1>
-            <p class="mt-2 text-blue-100">每天更新，完全免费</p>
+    <!-- 页面标题 -->
+    <section style="background: linear-gradient(135deg, #2383E4 0%, #1A5FB4 100%); color: white; padding: 48px 24px;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h1 style="font-size: 2rem; font-weight: 600; font-family: var(--notion-font-serif); margin-bottom: 8px;">招标项目列表</h1>
+            <p style="opacity: 0.9;">实时数据来自中国政府采购网 + 国家电网</p>
         </div>
     </section>
 
-    <section class="py-8">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <div class="grid md:grid-cols-3 gap-4">
-                    <input type="text" id="keywords" placeholder="搜索：物联网卡、布控球..." class="md:col-span-2 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                    <select id="projectType" class="px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="">所有类型</option>
-                        <option value="物联网卡">物联网卡</option>
-                        <option value="布控球">布控球</option>
+    <!-- 搜索和筛选 -->
+    <section style="padding: 32px 24px;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <div class="card">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <input type="text" id="searchInput" placeholder="搜索项目名称..." class="input">
+                    <select id="categorySelect" class="input">
+                        <option value="">所有行业</option>
+                        <option value="政府采购">政府采购</option>
+                        <option value="电力招标">电力招标</option>
                     </select>
-                </div>
-                <div class="mt-4 flex justify-between items-center">
-                    <p class="text-gray-600">找到 <span id="count" class="font-bold text-primary">0</span> 个项目</p>
-                    <button onclick="filterProjects()" class="bg-primary hover:bg-secondary text-white px-6 py-2 rounded-lg font-medium">搜索</button>
+                    <button onclick="loadProjects()" class="btn btn-primary">搜索</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="pb-20">
-        <div class="max-w-7xl mx-auto px-4">
-            <div id="projects-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="text-center text-gray-500 col-span-3">加载中...</div>
+    <!-- 项目列表 -->
+    <section style="padding-bottom: 80px;">
+        <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px;">
+            <div id="projectsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+                <!-- 项目卡片由 JavaScript 动态加载 -->
+            </div>
+            <div id="loading" style="text-align: center; padding: 48px;">
+                <div style="width: 48px; height: 48px; border: 3px solid var(--notion-border); border-top-color: var(--notion-accent-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 16px; color: var(--notion-text-secondary);">加载中...</p>
             </div>
         </div>
     </section>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
     <script>
-        let allProjects = [];
-        
-        async function filterProjects() {
-            const keywords = document.getElementById('keywords').value;
-            const projectType = document.getElementById('projectType').value;
+        const API_BASE = 'https://tender-engine-backend-production.up.railway.app';
+
+        async function loadProjects() {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('projectsGrid');
             
-            let url = '/api/projects/filter?';
-            if (keywords) url += `keywords=${encodeURIComponent(keywords)}&`;
-            if (projectType) url += `project_type=${encodeURIComponent(projectType)}`;
-            
+            loading.style.display = 'block';
+            grid.innerHTML = '';
+
             try {
-                const res = await fetch(url);
-                const projects = await res.json();
-                allProjects = projects;
-                document.getElementById('count').textContent = projects.length;
-                renderProjects(projects);
-            } catch (e) {
-                document.getElementById('projects-container').innerHTML = '<div class="text-center text-gray-500 col-span-3">加载失败</div>';
+                const response = await fetch(`${API_BASE}/api/projects`);
+                const projects = await response.json();
+
+                loading.style.display = 'none';
+
+                if (projects.length === 0) {
+                    grid.innerHTML = '<p style="text-align: center; grid-column: 1/-1; color: var(--notion-text-secondary);">暂无数据</p>';
+                    return;
+                }
+
+                projects.forEach(project => {
+                    const card = document.createElement('a');
+                    card.className = 'project-item';
+                    card.href = `project-detail.html?id=${project.id}`;
+                    card.innerHTML = `
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                                <span class="badge">${project.category}</span>
+                                <span style="font-size: 13px; color: var(--notion-text-tertiary);">${project.deadline} 截止</span>
+                            </div>
+                            <h3 class="project-title">${project.name}</h3>
+                            <p style="font-size: 14px; color: var(--notion-text-secondary); margin-bottom: 16px;">${project.description.substring(0, 80)}...</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <span style="color: var(--notion-accent-blue); font-weight: 600;">￥${(project.budget / 10000).toFixed(0)}万</span>
+                                <span style="font-size: 13px; color: var(--notion-text-tertiary);">📍 ${project.location}</span>
+                            </div>
+                            <div style="display: flex; align-items: justify-between; padding-top: 16px; border-top: 1px solid var(--notion-border);">
+                                <span style="font-size: 12px; color: var(--notion-text-tertiary);">${project.source_site}</span>
+                                <span style="color: var(--notion-accent-blue); font-weight: 500;">查看详情 →</span>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (error) {
+                loading.innerHTML = `<p style="color: var(--notion-accent-red);">加载失败：${error.message}</p>`;
             }
         }
-        
-        function renderProjects(projects) {
-            const container = document.getElementById('projects-container');
-            if (projects.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-500 col-span-3">暂无项目</div>';
-                return;
-            }
-            container.innerHTML = projects.map(p => `
-                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-                    <div class="p-6">
-                        <div class="flex justify-between items-start mb-4">
-                            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">${p.type || '招标'}</span>
-                            <span class="text-gray-500 text-sm">${p.publishDate || ''}</span>
-                        </div>
-                        <h3 class="text-lg font-bold mb-2">${p.name}</h3>
-                        <p class="text-gray-600 text-sm mb-4">${p.company}</p>
-                        <div class="flex justify-between items-center mb-4">
-                            <span class="text-primary font-bold">¥ ${(p.budget/10000).toFixed(0)}万</span>
-                            <span class="text-gray-500 text-sm">${p.province || ''}</span>
-                        </div>
-                        <div class="flex items-center justify-between pt-4 border-t">
-                            <a href="https://www.baidu.com/s?wd=${encodeURIComponent(p.name)}" target="_blank" class="text-primary hover:underline text-sm">搜索公告 →</a>
-                            <a href="project-detail?id=${p.id}" class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg text-sm font-medium">详情</a>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        window.onload = () => {
-            filterProjects();
-        };
+
+        // 页面加载时获取数据
+        loadProjects();
     </script>
 </body>
 </html>
