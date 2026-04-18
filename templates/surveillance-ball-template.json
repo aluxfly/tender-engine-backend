@@ -1,0 +1,227 @@
+{
+  "template_id": "surveillance-ball",
+  "template_name": "布控球标书模板",
+  "version": "1.0",
+  "created_at": "2026-04-18",
+  "fields": {
+    "project_info": {
+      "project_name": {
+        "type": "text",
+        "label": "项目名称",
+        "required": true
+      },
+      "project_code": {
+        "type": "text",
+        "label": "项目编号",
+        "required": true
+      },
+      "project_type": {
+        "type": "select",
+        "label": "项目类型",
+        "options": ["布控球采购", "布控球租赁", "布控球服务", "视频监控系统", "其他"],
+        "required": true
+      }
+    },
+    "company_info": {
+      "company_name": {
+        "type": "text",
+        "label": "公司名称",
+        "required": true
+      },
+      "contact_person": {
+        "type": "text",
+        "label": "联系人",
+        "required": true
+      },
+      "contact_phone": {
+        "type": "text",
+        "label": "联系电话",
+        "required": true
+      },
+      "contact_email": {
+        "type": "email",
+        "label": "联系邮箱",
+        "required": true
+      }
+    },
+    "device_spec": {
+      "video_resolution": {
+        "type": "select",
+        "label": "视频分辨率",
+        "options": ["1080P", "2K", "4K", "8K", "其他"],
+        "required": true
+      },
+      "frame_rate": {
+        "type": "select",
+        "label": "帧率",
+        "options": ["25fps", "30fps", "60fps", "定制帧率"],
+        "required": true
+      },
+      "bit_rate": {
+        "type": "select",
+        "label": "码率",
+        "options": ["2Mbps", "4Mbps", "8Mbps", "10Mbps", "定制码率"],
+        "required": true
+      },
+      "storage": {
+        "type": "select",
+        "label": "存储方式",
+        "options": ["本地存储", "云存储", "本地+云存储", "定制存储"],
+        "required": true
+      },
+      "power": {
+        "type": "select",
+        "label": "供电方式",
+        "options": ["太阳能", "市电", "电池", "太阳能+电池", "其他"],
+        "required": true
+      },
+      "installation": {
+        "type": "select",
+        "label": "安装方式",
+        "options": ["立杆安装", "墙面安装", "屋顶安装", "车载安装", "其他"],
+        "required": true
+      }
+    },
+    "network": {
+      "wireless": {
+        "type": "select",
+        "label": "无线传输",
+        "options": ["4G", "5G", "Wi-Fi", "光纤", "混合组网"],
+        "required": true
+      },
+      "protocol": {
+        "type": "select",
+        "label": "协议支持",
+        "options": ["RTSP", "ONVIF", "GB/T28181", "私有协议", "多协议支持"],
+        "required": true
+      },
+      "isp_support": {
+        "type": "checkbox",
+        "label": "ISP支持",
+        "required": true
+      },
+      "cdn_support": {
+        "type": "checkbox",
+        "label": "CDN支持",
+        "required": true
+      }
+    },
+    "smart_features": {
+      "smart_analysis": {
+        "type": "textarea",
+        "label": "智能分析功能",
+        "placeholder": "如：人脸识别、车牌识别、行为分析等",
+        "required": false
+      },
+      "ai_algorithm": {
+        "type": "textarea",
+        "label": "AI算法",
+        "placeholder": "请描述AI算法能力",
+        "required": false
+      }
+    },
+    "delivery": {
+      "delivery_time": {
+        "type": "date",
+        "label": "交付时间",
+        "required": true
+      },
+      "delivery_quantity": {
+        "type": "number",
+        "label": "交付数量",
+        "unit": "台",
+        "required": true
+      },
+      "accessories": {
+        "type": "textarea",
+        "label": "配件清单",
+        "placeholder": "请列出所有配件",
+        "required": true
+      }
+    },
+    "pricing": {
+      "unit_price": {
+        "type": "currency",
+        "label": "单价",
+        "currency": "CNY",
+        "required": true
+      },
+      "total_price": {
+        "type": "currency",
+        "label": "总价",
+        "currency": "CNY",
+        "required": true
+      },
+      "payment_terms": {
+        "type": "select",
+        "label": "付款方式",
+        "options": ["预付款30%+尾款70%", "货到付款", "月结", "季度结算"],
+        "required": true
+      }
+    },
+    "qualifications": {
+      "security_license": {
+        "type": "checkbox",
+        "label": "安防工程企业资质",
+        "required": true
+      },
+      "communication_license": {
+        "type": "checkbox",
+        "label": "通信资质",
+        "required": true
+      },
+      "integration_license": {
+        "type": "checkbox",
+        "label": "集成资质",
+        "required": true
+      },
+      "other_qualifications": {
+        "type": "textarea",
+        "label": "其他资质",
+        "placeholder": "请列出其他相关资质",
+        "required": false
+      }
+    },
+    "case_studies": {
+      "similar_projects": {
+        "type": "textarea",
+        "label": "类似项目案例",
+        "placeholder": "请列出3-5个类似布控球项目案例",
+        "required": true
+      },
+      "project_references": {
+        "type": "textarea",
+        "label": "项目联系人",
+        "placeholder": "请提供项目联系人信息",
+        "required": false
+      }
+    }
+  },
+  "ai_generation": {
+    "industry_terms": [
+      "ISP",
+      "CDN",
+      "RTSP",
+      "ONVIF",
+      "GB/T28181",
+      "1080P",
+      "4K",
+      "视频云平台",
+      "智能分析",
+      "人脸识别"
+    ],
+    "qualification_keywords": [
+      "安防工程企业资质",
+      "通信资质",
+      "集成资质",
+      "安防设计施工资质"
+    ],
+    "technical_keywords": [
+      "视频云平台",
+      "智能分析",
+      "人脸识别",
+      "车牌识别",
+      "行为分析"
+    ]
+  }
+}

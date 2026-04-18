@@ -1,0 +1,224 @@
+{
+  "template_id": "iot-sim-card",
+  "template_name": "物联网卡标书模板",
+  "version": "1.0",
+  "created_at": "2026-04-18",
+  "fields": {
+    "project_info": {
+      "project_name": {
+        "type": "text",
+        "label": "项目名称",
+        "required": true
+      },
+      "project_code": {
+        "type": "text",
+        "label": "项目编号",
+        "required": true
+      },
+      "project_type": {
+        "type": "select",
+        "label": "项目类型",
+        "options": ["物联网卡采购", "物联网卡服务", "物联网卡平台", "其他"],
+        "required": true
+      }
+    },
+    "company_info": {
+      "company_name": {
+        "type": "text",
+        "label": "公司名称",
+        "required": true
+      },
+      "contact_person": {
+        "type": "text",
+        "label": "联系人",
+        "required": true
+      },
+      "contact_phone": {
+        "type": "text",
+        "label": "联系电话",
+        "required": true
+      },
+      "contact_email": {
+        "type": "email",
+        "label": "联系邮箱",
+        "required": true
+      }
+    },
+    "sim_card_spec": {
+      "card_type": {
+        "type": "select",
+        "label": "卡类型",
+        "options": ["SIM卡", "eSIM", "M2M卡", "NFCA-SIM", "其他"],
+        "required": true
+      },
+      "frequency_band": {
+        "type": "select",
+        "label": "频段支持",
+        "options": ["FDD-LTE", "TDD-LTE", "NB-IoT", "eMTC", "5G", "全频段"],
+        "required": true
+      },
+      "data_plan": {
+        "type": "select",
+        "label": "流量套餐",
+        "options": ["月流量100MB", "月流量500MB", "月流量1GB", "月流量5GB", "年流量套餐", "定制流量"],
+        "required": true
+      },
+      "operator": {
+        "type": "select",
+        "label": "运营商合作",
+        "options": ["中国移动", "中国联通", "中国电信", "多运营商支持"],
+        "required": true
+      },
+      "apn": {
+        "type": "text",
+        "label": "APN配置",
+        "placeholder": "如：cmiot、uniot、ctnet等",
+        "required": false
+      }
+    },
+    "service_requirements": {
+      "platform_type": {
+        "type": "select",
+        "label": "平台类型",
+        "options": ["卡管理平台", "API对接", "物联网平台", "自建平台", "其他"],
+        "required": true
+      },
+      "api_requirements": {
+        "type": "textarea",
+        "label": "API对接需求",
+        "placeholder": "请描述需要的API接口类型和功能",
+        "required": false
+      },
+      "iot_platform": {
+        "type": "textarea",
+        "label": "物联网平台需求",
+        "placeholder": "请描述平台功能需求",
+        "required": false
+      }
+    },
+    "technical_spec": {
+      "qos": {
+        "type": "select",
+        "label": "QoS要求",
+        "options": ["标准服务", "优先服务", "保障服务", "定制QoS"],
+        "required": true
+      },
+      "security": {
+        "type": "select",
+        "label": "安全要求",
+        "options": ["标准加密", "双向认证", "端到端加密", "定制安全方案"],
+        "required": true
+      },
+      "vplmn": {
+        "type": "text",
+        "label": "VPLMN配置",
+        "placeholder": "如：46001、46003等",
+        "required": false
+      }
+    },
+    "delivery": {
+      "delivery_time": {
+        "type": "date",
+        "label": "交付时间",
+        "required": true
+      },
+      "delivery_quantity": {
+        "type": "number",
+        "label": "交付数量",
+        "unit": "张",
+        "required": true
+      },
+      "packaging": {
+        "type": "select",
+        "label": "包装方式",
+        "options": ["标准包装", "定制包装", "防静电包装", "其他"],
+        "required": true
+      }
+    },
+    "pricing": {
+      "unit_price": {
+        "type": "currency",
+        "label": "单价",
+        "currency": "CNY",
+        "required": true
+      },
+      "total_price": {
+        "type": "currency",
+        "label": "总价",
+        "currency": "CNY",
+        "required": true
+      },
+      "payment_terms": {
+        "type": "select",
+        "label": "付款方式",
+        "options": ["预付款30%+尾款70%", "货到付款", "月结", "季度结算"],
+        "required": true
+      }
+    },
+    "qualifications": {
+      "icp_license": {
+        "type": "checkbox",
+        "label": "ICP许可证",
+        "required": true
+      },
+      "edi_certificate": {
+        "type": "checkbox",
+        "label": "EDI证书",
+        "required": true
+      },
+      "iot_qualification": {
+        "type": "checkbox",
+        "label": "物联网资质",
+        "required": true
+      },
+      "other_qualifications": {
+        "type": "textarea",
+        "label": "其他资质",
+        "placeholder": "请列出其他相关资质",
+        "required": false
+      }
+    },
+    "case_studies": {
+      "similar_projects": {
+        "type": "textarea",
+        "label": "类似项目案例",
+        "placeholder": "请列出3-5个类似物联网卡项目案例",
+        "required": true
+      },
+      "project_references": {
+        "type": "textarea",
+        "label": "项目联系人",
+        "placeholder": "请提供项目联系人信息",
+        "required": false
+      }
+    }
+  },
+  "ai_generation": {
+    "industry_terms": [
+      "APN",
+      "VPLMN",
+      "QoS",
+      "eSIM",
+      "M2M",
+      "NB-IoT",
+      "LTE",
+      "SIM卡",
+      "卡管理平台",
+      "API对接"
+    ],
+    "qualification_keywords": [
+      "增值电信业务经营许可证",
+      "ICP许可证",
+      "EDI证书",
+      "物联网资质",
+      "通信资质"
+    ],
+    "technical_keywords": [
+      "卡管理平台",
+      "API接口",
+      "物联网平台",
+      "QoS保障",
+      "安全加密"
+    ]
+  }
+}

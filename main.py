@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import random
 from datetime import datetime
 from docx import Document
@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 import sqlite3
 from pathlib import Path
 import logging
+import json
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -206,6 +207,8 @@ class BidGenerateRequest(BaseModel):
     contact_person: str
     contact_phone: str
     bid_amount: float
+    project_type: Optional[str] = "物联网卡"  # 物联网卡/布控球
+    custom_fields: Optional[Dict[str, Any]] = None  # 自定义字段
 
 
 # ==================== API 端点 ====================
@@ -401,6 +404,7 @@ def generate_bid_document(request: BidGenerateRequest):
     """
     生成投标文件（Word 格式）
     
+    支持物联网卡和布控球两种模板
     返回可下载的 .docx 文件
     """
     try:
@@ -428,14 +432,41 @@ def generate_bid_document(request: BidGenerateRequest):
         logger.error(f"查询项目失败：{e}")
         raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
     
+    # 根据项目类型选择模板
+    template_type = request.project_type if request.project_type in ['物联网卡', '布控球'] else '物联网卡'
+    
+    # 加载模板文件
+    template = None
+    if template_type == '物联网卡':
+        template_path = Path(__file__).parent / 'templates' / 'iot-sim-card-template.json'
+    else:
+        template_path = Path(__file__).parent / 'templates' / 'surveillance-ball-template.json'
+    
+    if template_path.exists():
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = json.load(f)
+    
     # 创建 Word 文档
+    from docx.shared import Pt
+    from docx.oxml.ns import qn
+    
     doc = Document()
     
+    # 设置中文字体支持
+    doc.styles['Normal'].font.name = '宋体'
+    doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    doc.styles['Normal']._element.rPr.rFonts.set(qn('w:ascii'), '宋体')
+    
     # 标题
-    doc.add_heading('投标文件', 0)
+    title = doc.add_heading(f'{template_type}投标文件', 0)
+    title.runs[0].font.name = '宋体'
+    title.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
     
     # 项目信息
-    doc.add_heading('一、项目信息', level=1)
+    heading1 = doc.add_heading('一、项目信息', level=1)
+    heading1.runs[0].font.name = '宋体'
+    heading1.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    
     doc.add_paragraph(f'项目名称：{project["name"]}')
     doc.add_paragraph(f'项目预算：¥{project["budget"]:,.2f}')
     doc.add_paragraph(f'截止日期：{project["deadline"]}')
@@ -444,17 +475,51 @@ def generate_bid_document(request: BidGenerateRequest):
     doc.add_paragraph(f'项目描述：{project["description"]}')
     
     # 投标公司信息
-    doc.add_heading('二、投标公司信息', level=1)
+    heading2 = doc.add_heading('二、投标公司信息', level=1)
+    heading2.runs[0].font.name = '宋体'
+    heading2.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    
     doc.add_paragraph(f'公司名称：{request.company_name}')
     doc.add_paragraph(f'联系人：{request.contact_person}')
     doc.add_paragraph(f'联系电话：{request.contact_phone}')
     
     # 报价信息
-    doc.add_heading('三、投标报价', level=1)
+    heading3 = doc.add_heading('三、投标报价', level=1)
+    heading3.runs[0].font.name = '宋体'
+    heading3.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    
     doc.add_paragraph(f'投标金额：¥{request.bid_amount:,.2f}')
     
+    # 自定义字段（根据模板类型）
+    if template and request.custom_fields:
+        heading4 = doc.add_heading('四、自定义字段', level=1)
+        heading4.runs[0].font.name = '宋体'
+        heading4.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+        
+        for key, value in request.custom_fields.items():
+            doc.add_paragraph(f'{key}：{value}')
+    elif template:
+        # 使用模板默认字段
+        heading4 = doc.add_heading('四、技术规格', level=1)
+        heading4.runs[0].font.name = '宋体'
+        heading4.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+        
+        if template.get('template_id') == 'iot-sim-card':
+            doc.add_paragraph(f'卡类型：{request.custom_fields.get("card_type", "SIM卡") if request.custom_fields else "SIM卡"}')
+            doc.add_paragraph(f'频段支持：{request.custom_fields.get("frequency_band", "全频段") if request.custom_fields else "全频段"}')
+            doc.add_paragraph(f'流量套餐：{request.custom_fields.get("data_plan", "月流量1GB") if request.custom_fields else "月流量1GB"}')
+            doc.add_paragraph(f'运营商：{request.custom_fields.get("operator", "中国移动") if request.custom_fields else "中国移动"}')
+        elif template.get('template_id') == 'surveillance-ball':
+            doc.add_paragraph(f'视频分辨率：{request.custom_fields.get("video_resolution", "4K") if request.custom_fields else "4K"}')
+            doc.add_paragraph(f'帧率：{request.custom_fields.get("frame_rate", "30fps") if request.custom_fields else "30fps"}')
+            doc.add_paragraph(f'存储方式：{request.custom_fields.get("storage", "云存储") if request.custom_fields else "云存储"}')
+            doc.add_paragraph(f'供电方式：{request.custom_fields.get("power", "太阳能") if request.custom_fields else "太阳能"}')
+    
     # 生成时间
-    doc.add_heading('四、生成时间', level=1)
+    heading5 = doc.add_heading('五、生成时间', level=1)
+    heading5.runs[0].font.name = '宋体'
+    heading5.runs[0]._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    
     doc.add_paragraph(f'文件生成时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     
     # 保存到内存
@@ -462,10 +527,15 @@ def generate_bid_document(request: BidGenerateRequest):
     doc.save(buffer)
     buffer.seek(0)
     
+    # URL 编码文件名（避免中文在 HTTP 头部中出错）
+    import urllib.parse
+    filename = f"{template_type}_bid_{project['id']}_{request.company_name}.docx"
+    encoded_filename = urllib.parse.quote(filename, safe='')
+    
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename=bid_{project['id']}_{request.company_name}.docx"}
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     )
 
 
