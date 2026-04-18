@@ -5,108 +5,603 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>项目列表 - 投标引擎</title>
     <link rel="stylesheet" href="/notion-style.css">
+    <style>
+        /* 页面特定样式 */
+        .page-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        
+        /* Hero 区域增强 */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            padding: 72px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: -50px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(20px, -20px); }
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+        
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: white;
+        }
+        
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 0;
+        }
+        
+        /* 搜索区域 */
+        .search-section {
+            padding: 40px 24px;
+            background: var(--notion-bg-secondary);
+        }
+        
+        .search-card {
+            background: var(--notion-bg-primary);
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: var(--notion-shadow-md);
+            border: 1px solid var(--notion-border);
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-input-wrapper {
+            flex: 2;
+            min-width: 280px;
+            position: relative;
+        }
+        
+        .search-input-wrapper .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--notion-text-tertiary);
+            font-size: 18px;
+        }
+        
+        .search-input-wrapper input {
+            padding-left: 48px;
+            padding-right: 16px;
+        }
+        
+        .filter-select-wrapper {
+            flex: 1;
+            min-width: 180px;
+        }
+        
+        .search-btn-wrapper {
+            flex-shrink: 0;
+        }
+        
+        /* 项目网格 */
+        .projects-section {
+            padding: 24px 24px 80px;
+            background: var(--notion-bg-secondary);
+        }
+        
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 24px;
+        }
+        
+        /* 项目卡片 */
+        .project-card {
+            background: var(--notion-bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--notion-border);
+            box-shadow: var(--notion-shadow-sm);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: block;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .project-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+            border-color: transparent;
+        }
+        
+        .project-card:hover::before {
+            opacity: 1;
+        }
+        
+        .project-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        
+        .project-card-body {
+            margin-bottom: 20px;
+        }
+        
+        .project-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid var(--notion-border);
+        }
+        
+        .project-title {
+            font-family: var(--notion-font-serif);
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--notion-text-primary);
+            margin-bottom: 10px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .project-desc {
+            font-size: 14px;
+            color: var(--notion-text-secondary);
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .project-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .project-price {
+            background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CC 100%);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-weight: 700;
+            font-size: 15px;
+            color: #B35C00;
+        }
+        
+        .project-location {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: var(--notion-text-tertiary);
+        }
+        
+        .project-source {
+            font-size: 12px;
+            color: var(--notion-text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .project-view-btn {
+            color: var(--notion-accent-blue);
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: gap 0.2s ease;
+        }
+        
+        .project-card:hover .project-view-btn {
+            gap: 8px;
+        }
+        
+        /* 标签样式 */
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 100px;
+            background: linear-gradient(135deg, #E8F4FD 0%, #D4E8FA 100%);
+            color: #007AFF;
+        }
+        
+        .category-badge.gov {
+            background: linear-gradient(135deg, #E8F4FD 0%, #D4E8FA 100%);
+            color: #007AFF;
+        }
+        
+        .category-badge.power {
+            background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
+            color: #7C3AED;
+        }
+        
+        .deadline-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: var(--notion-bg-tertiary);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--notion-text-secondary);
+        }
+        
+        /* 加载状态 */
+        .loading-container {
+            text-align: center;
+            padding: 80px 24px;
+        }
+        
+        .spinner-wrapper {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 4px solid var(--notion-border);
+            border-top-color: var(--notion-accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--notion-text-secondary);
+            font-size: 15px;
+            font-weight: 500;
+        }
+        
+        /* 骨架屏 */
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 24px;
+        }
+        
+        .skeleton-card {
+            background: var(--notion-bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--notion-border);
+        }
+        
+        .skeleton-line {
+            background: linear-gradient(90deg, var(--notion-bg-tertiary) 25%, var(--notion-bg-secondary) 50%, var(--notion-bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s ease-in-out infinite;
+            border-radius: 8px;
+        }
+        
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 80px 24px;
+            color: var(--notion-text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .hero {
+                padding: 48px 20px;
+            }
+            
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+            
+            .search-card {
+                padding: 20px;
+            }
+            
+            .search-input-wrapper,
+            .filter-select-wrapper {
+                min-width: 100%;
+            }
+            
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .project-card {
+                padding: 20px;
+            }
+        }
+        
+        /* 卡片淡入动画 */
+        .project-card {
+            opacity: 0;
+            animation: cardFadeIn 0.5s ease-out forwards;
+        }
+        
+        @keyframes cardFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- 导航栏 -->
     <nav class="navbar">
-        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+        <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
             <a href="/" class="navbar-brand">🎯 投标引擎</a>
-            <div style="display: flex; gap: 24px; align-items: center;">
-                <a href="/" style="color: var(--notion-text-primary); text-decoration: none;">首页</a>
-                <a href="/projects" style="color: var(--notion-accent-blue); text-decoration: none; font-weight: 500;">项目列表</a>
-                <a href="/bid" style="color: var(--notion-text-primary); text-decoration: none;">标书生成</a>
+            <div style="display: flex; gap: 32px; align-items: center;">
+                <a href="/" style="color: var(--notion-text-secondary); text-decoration: none; font-weight: 500; transition: color 0.2s;">首页</a>
+                <a href="/projects" style="color: var(--notion-accent-blue); text-decoration: none; font-weight: 600;">项目列表</a>
+                <a href="/bid" style="color: var(--notion-text-secondary); text-decoration: none; font-weight: 500; transition: color 0.2s;">标书生成</a>
             </div>
         </div>
     </nav>
 
-    <!-- 页面标题 -->
-    <section style="background: linear-gradient(135deg, #2383E4 0%, #1A5FB4 100%); color: white; padding: 48px 24px;">
-        <div style="max-width: 1200px; margin: 0 auto;">
-            <h1 style="font-size: 2rem; font-weight: 600; font-family: var(--notion-font-serif); margin-bottom: 8px;">招标项目列表</h1>
-            <p style="opacity: 0.9;">实时数据来自中国政府采购网 + 国家电网</p>
+    <!-- Hero 区域 -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>📋 招标项目列表</h1>
+            <p>实时数据来自中国政府采购网 + 国家电网，每日自动更新</p>
         </div>
     </section>
 
     <!-- 搜索和筛选 -->
-    <section style="padding: 32px 24px;">
-        <div style="max-width: 1200px; margin: 0 auto;">
-            <div class="card">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                    <input type="text" id="searchInput" placeholder="搜索项目名称..." class="input">
+    <section class="search-section">
+        <div class="page-container">
+            <div class="search-card">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="搜索项目名称、地点..." class="input">
+                </div>
+                <div class="filter-select-wrapper">
                     <select id="categorySelect" class="input">
                         <option value="">所有行业</option>
-                        <option value="政府采购">政府采购</option>
-                        <option value="电力招标">电力招标</option>
+                        <option value="政府采购">🏛️ 政府采购</option>
+                        <option value="电力招标">⚡ 电力招标</option>
                     </select>
-                    <button onclick="loadProjects()" class="btn btn-primary">搜索</button>
+                </div>
+                <div class="search-btn-wrapper">
+                    <button onclick="loadProjects()" class="btn btn-primary">
+                        <span>🔍</span> 搜索
+                    </button>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- 项目列表 -->
-    <section style="padding-bottom: 80px;">
-        <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px;">
-            <div id="projectsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+    <section class="projects-section">
+        <div class="page-container">
+            <!-- 骨架屏（初始加载） -->
+            <div id="skeletonGrid" class="skeleton-grid">
+                <div class="skeleton-card">
+                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
+                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
+                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
+                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
+                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+                </div>
+            </div>
+            
+            <!-- 项目网格 -->
+            <div id="projectsGrid" class="projects-grid" style="display: none;">
                 <!-- 项目卡片由 JavaScript 动态加载 -->
             </div>
-            <div id="loading" style="text-align: center; padding: 48px;">
-                <div style="width: 48px; height: 48px; border: 3px solid var(--notion-border); border-top-color: var(--notion-accent-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-                <p style="margin-top: 16px; color: var(--notion-text-secondary);">加载中...</p>
+            
+            <!-- 加载状态 -->
+            <div id="loading" class="loading-container" style="display: none;">
+                <div class="spinner-wrapper">
+                    <div class="spinner"></div>
+                    <p class="loading-text">正在加载项目数据...</p>
+                </div>
+            </div>
+            
+            <!-- 空状态 -->
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📭</div>
+                <p>暂无匹配的项目数据</p>
             </div>
         </div>
     </section>
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
     <script>
         const API_BASE = 'https://tender-engine-backend-production.up.railway.app';
 
         async function loadProjects() {
+            const skeletonGrid = document.getElementById('skeletonGrid');
             const loading = document.getElementById('loading');
             const grid = document.getElementById('projectsGrid');
+            const emptyState = document.getElementById('emptyState');
+            const searchInput = document.getElementById('searchInput');
+            const categorySelect = document.getElementById('categorySelect');
             
+            // 显示加载状态
+            skeletonGrid.style.display = 'none';
             loading.style.display = 'block';
-            grid.innerHTML = '';
+            grid.style.display = 'none';
+            emptyState.style.display = 'none';
 
             try {
                 const response = await fetch(`${API_BASE}/api/projects`);
-                const projects = await response.json();
+                let projects = await response.json();
+
+                // 应用搜索和筛选
+                const searchTerm = searchInput.value.toLowerCase();
+                const category = categorySelect.value;
+                
+                if (searchTerm) {
+                    projects = projects.filter(p => 
+                        p.name.toLowerCase().includes(searchTerm) ||
+                        p.location.toLowerCase().includes(searchTerm) ||
+                        p.description.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                if (category) {
+                    projects = projects.filter(p => p.category === category);
+                }
 
                 loading.style.display = 'none';
 
                 if (projects.length === 0) {
-                    grid.innerHTML = '<p style="text-align: center; grid-column: 1/-1; color: var(--notion-text-secondary);">暂无数据</p>';
+                    emptyState.style.display = 'block';
                     return;
                 }
 
-                projects.forEach(project => {
+                grid.style.display = 'grid';
+                grid.innerHTML = '';
+
+                projects.forEach((project, index) => {
                     const card = document.createElement('a');
-                    card.className = 'project-item';
+                    card.className = 'project-card';
                     card.href = `/project-detail?id=${project.id}`;
+                    card.style.animationDelay = `${index * 0.05}s`;
+                    
+                    const categoryClass = project.category === '电力招标' ? 'power' : 'gov';
+                    const categoryIcon = project.category === '电力招标' ? '⚡' : '🏛️';
+                    
                     card.innerHTML = `
-                        <div>
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
-                                <span class="badge">${project.category}</span>
-                                <span style="font-size: 13px; color: var(--notion-text-tertiary);">${project.deadline} 截止</span>
-                            </div>
+                        <div class="project-card-header">
+                            <span class="category-badge ${categoryClass}">${categoryIcon} ${project.category}</span>
+                            <span class="deadline-badge">📅 ${project.deadline} 截止</span>
+                        </div>
+                        <div class="project-card-body">
                             <h3 class="project-title">${project.name}</h3>
-                            <p style="font-size: 14px; color: var(--notion-text-secondary); margin-bottom: 16px;">${project.description.substring(0, 80)}...</p>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                                <span style="color: var(--notion-accent-blue); font-weight: 600;">￥${(project.budget / 10000).toFixed(0)}万</span>
-                                <span style="font-size: 13px; color: var(--notion-text-tertiary);">📍 ${project.location}</span>
-                            </div>
-                            <div style="display: flex; align-items: justify-between; padding-top: 16px; border-top: 1px solid var(--notion-border);">
-                                <span style="font-size: 12px; color: var(--notion-text-tertiary);">${project.source_site}</span>
-                                <span style="color: var(--notion-accent-blue); font-weight: 500;">查看详情 →</span>
-                            </div>
+                            <p class="project-desc">${project.description.substring(0, 100)}...</p>
+                        </div>
+                        <div class="project-meta-row">
+                            <span class="project-price">💰 ¥${(project.budget / 10000).toFixed(0)}万</span>
+                            <span class="project-location">📍 ${project.location}</span>
+                        </div>
+                        <div class="project-card-footer">
+                            <span class="project-source">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--notion-accent-green); display: inline-block;"></span>
+                                ${project.source_site}
+                            </span>
+                            <span class="project-view-btn">查看详情 →</span>
                         </div>
                     `;
                     grid.appendChild(card);
                 });
             } catch (error) {
-                loading.innerHTML = `<p style="color: var(--notion-accent-red);">加载失败：${error.message}</p>`;
+                loading.style.display = 'none';
+                skeletonGrid.style.display = 'none';
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 48px;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <p style="color: var(--notion-accent-red); font-weight: 500;">加载失败：${error.message}</p>
+                        <button onclick="loadProjects()" class="btn btn-secondary" style="margin-top: 16px;">重试</button>
+                    </div>
+                `;
+                grid.style.display = 'grid';
             }
         }
+
+        // 搜索输入回车触发
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadProjects();
+            }
+        });
+
+        // 分类选择变化触发
+        document.getElementById('categorySelect').addEventListener('change', function() {
+            loadProjects();
+        });
 
         // 页面加载时获取数据
         loadProjects();
