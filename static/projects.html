@@ -328,12 +328,16 @@
                     card.href = `/project-detail?id=${project.id}`;
                     card.style.animationDelay = `${index * 0.05}s`;
                     
-                    const categoryBg = project.category === '电力招标' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
-                    const categoryIcon = project.category === '电力招标' ? '⚡' : '🏛️';
+                    // 根据项目名称判断公告类型
+                    const announcementType = getAnnouncementType(project.name);
+                    const categoryBg = announcementType === '招标公告' ? 'bg-orange-100 text-orange-700' : 
+                                       announcementType === '采购公告' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+                    const categoryIcon = announcementType === '招标公告' ? '📢' : 
+                                         announcementType === '采购公告' ? '🛒' : '📋';
                     
                     card.innerHTML = `
                         <div class="flex justify-between items-start mb-4 gap-3">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${categoryBg}">${categoryIcon} ${project.category}</span>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${categoryBg}">${categoryIcon} ${announcementType}</span>`
                             <span class="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">📅 ${project.publish_date}</span>
                         </div>
                         <h3 class="text-lg font-bold mb-3 text-gray-800 line-clamp-2">${project.name}</h3>
@@ -391,6 +395,17 @@
                 loadProjects();
             }
         });
+
+        // 根据项目名称判断公告类型
+        function getAnnouncementType(name) {
+            if (name.includes('招标')) {
+                return '招标公告';
+            } else if (name.includes('采购')) {
+                return '采购公告';
+            } else {
+                return '其他公告';
+            }
+        }
 
         // 页面加载时获取数据
         loadProjects();
