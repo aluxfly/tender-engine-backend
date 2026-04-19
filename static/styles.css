@@ -1,0 +1,474 @@
+/* ========================================
+   投标引擎 - 统一样式文件
+   ======================================== */
+
+/* CSS 变量定义 */
+:root {
+  /* 主色调 */
+  --color-primary-700: #1E40AF;
+  --color-primary-600: #3B82F6;
+  --color-primary-500: #60A5FA;
+  --color-primary-100: #DBEAFE;
+  --color-primary-50: #EFF6FF;
+  
+  /* 背景色 */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F8FAFC;
+  --color-bg-tertiary: #F1F5F9;
+  --color-bg-hover: #F8FAFC;
+  
+  /* 文字色 */
+  --color-text-primary: #1E293B;
+  --color-text-secondary: #64748B;
+  --color-text-tertiary: #94A3B8;
+  
+  /* 边框色 */
+  --color-border: #E2E8F0;
+  --color-border-light: #F1F5F9;
+  
+  /* 状态色 */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* 间距 */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-3xl: 4rem;
+  
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 全局重置 */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+/* ========================================
+   导航栏样式
+   ======================================== */
+.navbar {
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--spacing-lg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary-600);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  transition: color 0.2s ease;
+}
+
+.navbar-brand:hover {
+  color: var(--color-primary-700);
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+}
+
+.navbar-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  transition: color 0.2s ease;
+  padding: var(--spacing-sm) 0;
+}
+
+.navbar-link:hover {
+  color: var(--color-primary-600);
+}
+
+.navbar-link.active {
+  color: var(--color-primary-600);
+  font-weight: 600;
+}
+
+/* ========================================
+   按钮样式
+   ======================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--color-primary-600);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-700);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-tertiary);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--color-primary-600);
+  border: 2px solid var(--color-primary-600);
+}
+
+.btn-outline:hover {
+  background: var(--color-primary-50);
+}
+
+.btn-lg {
+  padding: 14px 32px;
+  font-size: 1rem;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+}
+
+/* ========================================
+   卡片样式
+   ======================================== */
+.card {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-lg);
+  transition: all 0.3s ease;
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* ========================================
+   表单样式
+   ======================================== */
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+select.input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* ========================================
+   Hero 区域
+   ======================================== */
+.hero {
+  background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-600) 50%, #6366F1 100%);
+  color: white;
+  padding: var(--spacing-3xl) var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  pointer-events: none;
+  animation: float 6s ease-in-out infinite;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: -50px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, -20px); }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  color: white;
+}
+
+.hero p {
+  font-size: 1.125rem;
+  opacity: 0.9;
+  line-height: 1.7;
+}
+
+/* ========================================
+   页脚样式
+   ======================================== */
+.footer {
+  background: var(--color-text-primary);
+  color: white;
+  padding: var(--spacing-3xl) var(--spacing-lg) var(--spacing-xl);
+}
+
+.footer-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.footer-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  color: white;
+}
+
+.footer-section p {
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
+}
+
+.footer-section ul {
+  list-style: none;
+}
+
+.footer-section ul li {
+  margin-bottom: var(--spacing-sm);
+}
+
+.footer-section ul li a {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s ease;
+}
+
+.footer-section ul li a:hover {
+  color: white;
+}
+
+.footer-bottom {
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.footer-bottom p {
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* ========================================
+   辅助类
+   ======================================== */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+/* ========================================
+   响应式设计
+   ======================================== */
+@media (max-width: 768px) {
+  .navbar-container {
+    height: 56px;
+  }
+  
+  .navbar-nav {
+    gap: var(--spacing-md);
+  }
+  
+  .navbar-link {
+    font-size: 0.875rem;
+  }
+  
+  .hero {
+    padding: var(--spacing-2xl) var(--spacing-md);
+  }
+  
+  .hero h1 {
+    font-size: 1.75rem;
+  }
+  
+  .hero p {
+    font-size: 1rem;
+  }
+  
+  .btn {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+  }
+  
+  .btn-lg {
+    padding: 12px 24px;
+    font-size: 0.9375rem;
+  }
+}
+
+/* ========================================
+   动画
+   ======================================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* ========================================
+   滚动条样式
+   ======================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-tertiary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
