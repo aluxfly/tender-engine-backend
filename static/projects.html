@@ -475,6 +475,18 @@
     <!-- 项目列表 -->
     <section class="projects-section">
         <div class="page-container">
+            <!-- 统计信息 -->
+            <div id="statsBar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 16px 20px; background: var(--notion-bg-primary); border-radius: 12px; border: 1px solid var(--notion-border);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">📊</span>
+                    <span id="projectCount" style="font-size: 15px; color: var(--notion-text-primary); font-weight: 600;">共找到 0 个项目</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--notion-text-tertiary);">
+                    <span>🕐</span>
+                    <span>更新时间：<span id="updateTime">--</span></span>
+                </div>
+            </div>
+            
             <!-- 骨架屏（初始加载） -->
             <div id="skeletonGrid" class="skeleton-grid">
                 <div class="skeleton-card">
@@ -620,6 +632,18 @@
                 }
 
                 loading.style.display = 'none';
+
+                // 更新统计信息
+                document.getElementById('projectCount').textContent = `共找到 ${projects.length} 个项目`;
+                const now = new Date();
+                document.getElementById('updateTime').textContent = now.toLocaleString('zh-CN', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                document.getElementById('statsBar').style.display = 'flex';
 
                 if (projects.length === 0) {
                     emptyState.style.display = 'block';
