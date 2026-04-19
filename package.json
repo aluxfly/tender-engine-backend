@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "playwright": "^1.59.1",
+    "puppeteer": "^24.41.0",
+    "sql.js": "^1.14.1"
+  }
+}
