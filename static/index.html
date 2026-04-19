@@ -3,63 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>投标公司赚钱引擎 - 智能中标预测平台</title>
-    <link rel="stylesheet" href="/notion-style.css">
+    <title>投标引擎 - 智能中标预测平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1E40AF',
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
+<body class="bg-gray-50">
     <!-- 导航栏 -->
-    <nav class="navbar">
-        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center;">
-                <span class="navbar-brand">🎯 投标引擎</span>
-            </div>
-            <div style="display: flex; gap: 24px; align-items: center;">
-                <a href="/" style="color: var(--notion-text-primary); text-decoration: none; font-weight: 500;">首页</a>
-                <a href="/projects" style="color: var(--notion-text-primary); text-decoration: none; font-weight: 500;">项目列表</a>
-                <a href="/bid" style="color: var(--notion-text-primary); text-decoration: none; font-weight: 500;">标书生成</a>
-                <button class="btn btn-primary">立即试用</button>
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-primary">🎯 投标引擎</a>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="/" class="text-primary font-medium">首页</a>
+                    <a href="/projects" class="text-gray-700 hover:text-primary font-medium">项目列表</a>
+                    <a href="/bid" class="text-gray-700 hover:text-primary font-medium">标书生成</a>
+                    <button class="bg-primary hover:bg-secondary text-white px-6 py-2 rounded-lg font-medium transition">立即试用</button>
+                </div>
             </div>
         </div>
     </nav>
 
     <!-- Hero 区域 -->
-    <section style="background: linear-gradient(135deg, #2383E4 0%, #1A5FB4 100%); color: white; padding: 80px 24px;">
-        <div style="max-width: 1200px; margin: 0 auto; text-align: center;">
-            <h1 style="font-size: 3rem; font-weight: 600; margin-bottom: 24px; font-family: var(--notion-font-serif);">智能中标预测引擎</h1>
-            <p style="font-size: 1.25rem; margin-bottom: 32px; max-width: 800px; margin-left: auto; margin-right: auto; opacity: 0.95;">基于 AI 大数据的投标决策平台，帮助您的公司提升中标率 300%，让每一次投标都更有把握</p>
-            <div style="display: flex; justify-content: center; gap: 16px;">
-                <a href="/projects" class="btn" style="background: white; color: #2383E4; font-weight: 600; font-size: 1.1rem; padding: 12px 32px;">浏览项目</a>
-                <a href="/bid" class="btn" style="border: 2px solid white; color: white; font-weight: 600; font-size: 1.1rem; padding: 12px 32px;">生成标书</a>
+    <section class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl font-bold mb-6">智能中标预测引擎</h1>
+            <p class="text-xl mb-8 text-blue-100 max-w-3xl mx-auto">基于 AI 大数据的投标决策平台，帮助您的公司提升中标率 300%，让每一次投标都更有把握</p>
+            <div class="flex justify-center gap-4">
+                <a href="/projects" class="bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">浏览项目</a>
+                <a href="/bid" class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary transition">生成标书</a>
             </div>
         </div>
     </section>
 
     <!-- 核心功能 -->
-    <section style="padding: 80px 24px;">
-        <div style="max-width: 1200px; margin: 0 auto;">
-            <h2 style="font-size: 2rem; font-weight: 600; text-align: center; margin-bottom: 48px; font-family: var(--notion-font-serif);">核心功能</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
-                <div class="card" style="text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
-                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 12px; font-family: var(--notion-font-serif);">中标预测</h3>
-                    <p style="color: var(--notion-text-secondary);">AI 算法分析历史数据，精准预测中标概率，帮您做出明智决策</p>
+    <section class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-center mb-12">核心功能</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <div class="text-5xl mb-4">📊</div>
+                    <h3 class="text-xl font-bold mb-3">中标预测</h3>
+                    <p class="text-gray-600">AI 算法分析历史数据，精准预测中标概率，帮您做出明智决策</p>
                 </div>
-                <div class="card" style="text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 16px;">📝</div>
-                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 12px; font-family: var(--notion-font-serif);">智能标书</h3>
-                    <p style="color: var(--notion-text-secondary);">一键生成专业标书，自动匹配招标要求，节省 80% 编写时间</p>
+                <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <div class="text-5xl mb-4">📝</div>
+                    <h3 class="text-xl font-bold mb-3">智能标书</h3>
+                    <p class="text-gray-600">一键生成专业标书，自动匹配招标要求，节省 80% 编写时间</p>
                 </div>
-                <div class="card" style="text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
-                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 12px; font-family: var(--notion-font-serif);">项目推荐</h3>
-                    <p style="color: var(--notion-text-secondary);">根据您的资质和优势，智能推荐最适合的招标项目</p>
+                <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <div class="text-5xl mb-4">🔍</div>
+                    <h3 class="text-xl font-bold mb-3">项目推荐</h3>
+                    <p class="text-gray-600">根据您的资质和优势，智能推荐最适合的招标项目</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- 数据展示 -->
-    <section class="bg-gray-100 py-20">
+    <section class="bg-white py-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-4 gap-8 text-center">
                 <div>
@@ -83,47 +97,49 @@
     </section>
 
     <!-- CTA 区域 -->
-    <section style="padding: 80px 24px; text-align: center;">
-        <div style="max-width: 800px; margin: 0 auto;">
-            <h2 style="font-size: 2rem; font-weight: 600; margin-bottom: 16px; font-family: var(--notion-font-serif);">准备好提升中标率了吗？</h2>
-            <p style="color: var(--notion-text-secondary); margin-bottom: 32px;">立即注册，免费试用 30 天，体验 AI 驱动的投标决策力量</p>
-            <a href="/projects" class="btn btn-primary" style="padding: 16px 40px; font-size: 1.1rem; font-weight: 600;">免费开始使用</a>
+    <section class="py-20 text-center">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold mb-4">准备好提升中标率了吗？</h2>
+            <p class="text-gray-600 mb-8">立即注册，免费试用 30 天，体验 AI 驱动的投标决策力量</p>
+            <a href="/projects" class="inline-block bg-primary hover:bg-secondary text-white px-10 py-4 rounded-lg font-semibold text-lg transition">免费开始使用</a>
         </div>
     </section>
 
     <!-- 页脚 -->
-    <footer class="footer">
-        <div style="max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px;">
-            <div>
-                <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; font-family: var(--notion-font-serif);">🎯 投标引擎</h4>
-                <p class="footer-text">智能中标预测平台</p>
+    <footer class="bg-gray-800 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <h4 class="text-lg font-bold mb-4">🎯 投标引擎</h4>
+                    <p class="text-gray-400">智能中标预测平台</p>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">产品</h4>
+                    <ul class="space-y-2">
+                        <li><a href="/projects" class="text-gray-400 hover:text-white">项目列表</a></li>
+                        <li><a href="/bid" class="text-gray-400 hover:text-white">标书生成</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">价格方案</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">支持</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">帮助中心</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">联系我们</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">API 文档</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">法律</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">隐私政策</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">服务条款</a></li>
+                    </ul>
+                </div>
             </div>
-            <div>
-                <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; font-family: var(--notion-font-serif);">产品</h4>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 8px;"><a href="projects.html" style="color: var(--notion-text-secondary);">项目列表</a></li>
-                    <li style="margin-bottom: 8px;"><a href="bid.html" style="color: var(--notion-text-secondary);">标书生成</a></li>
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">价格方案</a></li>
-                </ul>
+            <div class="text-center pt-8 border-t border-gray-700">
+                <p class="text-gray-400">&copy; 2026 投标引擎。All rights reserved.</p>
             </div>
-            <div>
-                <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; font-family: var(--notion-font-serif);">支持</h4>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">帮助中心</a></li>
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">联系我们</a></li>
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">API 文档</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; font-family: var(--notion-font-serif);">法律</h4>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">隐私政策</a></li>
-                    <li style="margin-bottom: 8px;"><a href="#" style="color: var(--notion-text-secondary);">服务条款</a></li>
-                </ul>
-            </div>
-        </div>
-        <div style="text-align: center; margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--notion-border); color: var(--notion-text-tertiary); font-size: 13px;">
-            <p>&copy; 2026 投标引擎。All rights reserved.</p>
         </div>
     </footer>
 </body>

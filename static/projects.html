@@ -4,391 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>项目列表 - 投标引擎</title>
-    <link rel="stylesheet" href="/notion-style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1E40AF',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* 页面特定样式 */
-        .page-container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-        
-        /* Hero 区域增强 */
-        .hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            color: white;
-            padding: 40px 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -100px;
-            right: -100px;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
-            pointer-events: none;
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        .hero::after {
-            content: '';
-            position: absolute;
-            bottom: -50px;
-            left: -50px;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            pointer-events: none;
-            animation: float 8s ease-in-out infinite reverse;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(20px, -20px); }
-        }
-        
-        .hero-content {
-            position: relative;
-            z-index: 1;
-            max-width: 1280px;
-            margin: 0 auto;
-        }
-        
-        .hero h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: white;
-        }
-        
-        .hero p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            margin-bottom: 0;
-        }
-        
-        /* 搜索区域 */
-        .search-section {
-            padding: 16px 24px 0;
-            background: var(--notion-bg-secondary);
-        }
-        
-        .search-card {
-            background: var(--notion-bg-primary);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: var(--notion-shadow-sm);
-            border: 1px solid var(--notion-border);
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        
-        .search-input-wrapper {
-            flex: 2;
-            min-width: 280px;
-            position: relative;
-        }
-        
-        .search-input-wrapper .search-icon {
-            position: absolute;
-            left: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--notion-text-tertiary);
-            font-size: 18px;
-        }
-        
-        .search-input-wrapper input {
-            padding-left: 48px;
-            padding-right: 16px;
-        }
-        
-        .filter-select-wrapper {
-            flex: 1;
-            min-width: 180px;
-        }
-        
-        .search-btn-wrapper {
-            flex-shrink: 0;
-        }
-        
-        /* 项目网格 */
-        .projects-section {
-            padding: 0 24px 40px;
-            background: var(--notion-bg-secondary);
-        }
-        
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 16px;
-        }
-        
-        /* 项目卡片 */
-        .project-card {
-            background: var(--notion-bg-primary);
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid var(--notion-border);
-            box-shadow: var(--notion-shadow-sm);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            display: block;
-            text-decoration: none;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .project-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .project-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
-            border-color: transparent;
-        }
-        
-        .project-card:hover::before {
-            opacity: 1;
-        }
-        
-        .project-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-            gap: 12px;
-        }
-        
-        .project-card-body {
-            margin-bottom: 20px;
-        }
-        
-        .project-card-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 16px;
-            border-top: 1px solid var(--notion-border);
-        }
-        
-        .project-title {
-            font-family: var(--notion-font-serif);
-            font-size: 1.15rem;
-            font-weight: 600;
-            color: var(--notion-text-primary);
-            margin-bottom: 10px;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        .project-desc {
-            font-size: 14px;
-            color: var(--notion-text-secondary);
-            line-height: 1.6;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        .project-meta-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        
-        .project-price {
-            background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CC 100%);
-            padding: 6px 14px;
-            border-radius: 100px;
-            font-weight: 700;
-            font-size: 15px;
-            color: #B35C00;
-        }
-        
-        .project-location {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 13px;
-            color: var(--notion-text-tertiary);
-        }
-        
-        .project-source {
-            font-size: 12px;
-            color: var(--notion-text-tertiary);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .project-view-btn {
-            color: var(--notion-accent-blue);
-            font-weight: 600;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: gap 0.2s ease;
-        }
-        
-        .project-card:hover .project-view-btn {
-            gap: 8px;
-        }
-        
-        /* 标签样式 */
-        .category-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 5px 12px;
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 100px;
-            background: linear-gradient(135deg, #E8F4FD 0%, #D4E8FA 100%);
-            color: #007AFF;
-        }
-        
-        .category-badge.gov {
-            background: linear-gradient(135deg, #E8F4FD 0%, #D4E8FA 100%);
-            color: #007AFF;
-        }
-        
-        .category-badge.power {
-            background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%);
-            color: #7C3AED;
-        }
-        
-        .deadline-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            background: var(--notion-bg-tertiary);
-            border-radius: 100px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--notion-text-secondary);
-        }
-        
-        /* 加载状态 */
-        .loading-container {
-            text-align: center;
-            padding: 80px 24px;
-        }
-        
-        .spinner-wrapper {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .spinner {
-            width: 56px;
-            height: 56px;
-            border: 4px solid var(--notion-border);
-            border-top-color: var(--notion-accent-blue);
-            border-radius: 50%;
-            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .loading-text {
-            color: var(--notion-text-secondary);
-            font-size: 15px;
-            font-weight: 500;
-        }
-        
-        /* 骨架屏 */
-        .skeleton-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 24px;
-        }
-        
-        .skeleton-card {
-            background: var(--notion-bg-primary);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--notion-border);
-        }
-        
-        .skeleton-line {
-            background: linear-gradient(90deg, var(--notion-bg-tertiary) 25%, var(--notion-bg-secondary) 50%, var(--notion-bg-tertiary) 75%);
-            background-size: 200% 100%;
-            animation: skeleton-loading 1.5s ease-in-out infinite;
-            border-radius: 8px;
-        }
-        
-        @keyframes skeleton-loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        
-        /* 空状态 */
-        .empty-state {
-            text-align: center;
-            padding: 80px 24px;
-            color: var(--notion-text-secondary);
-        }
-        
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-        
-        /* 响应式 */
-        @media (max-width: 768px) {
-            .hero {
-                padding: 48px 20px;
-            }
-            
-            .hero h1 {
-                font-size: 1.75rem;
-            }
-            
-            .search-card {
-                padding: 20px;
-            }
-            
-            .search-input-wrapper,
-            .filter-select-wrapper {
-                min-width: 100%;
-            }
-            
-            .projects-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .project-card {
-                padding: 20px;
-            }
-        }
-        
         /* 卡片淡入动画 */
         .project-card {
             opacity: 0;
@@ -405,59 +34,106 @@
                 transform: translateY(0);
             }
         }
+        
+        /* 骨架屏动画 */
+        .skeleton-line {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s ease-in-out infinite;
+            border-radius: 8px;
+        }
+        
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* 日期筛选按钮 */
+        .date-filter-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .date-filter-btn:hover {
+            border-color: #3B82F6;
+            color: #3B82F6;
+        }
+        
+        .date-filter-btn.active {
+            border-color: #3B82F6;
+            background: #EFF6FF;
+            color: #3B82F6;
+            font-weight: 600;
+        }
     </style>
 </head>
-<body>
+<body class="bg-gray-50">
     <!-- 导航栏 -->
-    <nav class="navbar">
-        <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <a href="/" class="navbar-brand">🎯 投标引擎</a>
-            <div style="display: flex; gap: 32px; align-items: center;">
-                <a href="/" style="color: var(--notion-text-secondary); text-decoration: none; font-weight: 500; transition: color 0.2s;">首页</a>
-                <a href="/projects" style="color: var(--notion-accent-blue); text-decoration: none; font-weight: 600;">项目列表</a>
-                <a href="/bid" style="color: var(--notion-text-secondary); text-decoration: none; font-weight: 500; transition: color 0.2s;">标书生成</a>
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-primary">🎯 投标引擎</a>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="/" class="text-gray-700 hover:text-primary font-medium">首页</a>
+                    <a href="/projects" class="text-primary font-medium">项目列表</a>
+                    <a href="/bid" class="text-gray-700 hover:text-primary font-medium">标书生成</a>
+                    <button class="bg-primary hover:bg-secondary text-white px-6 py-2 rounded-lg font-medium transition">立即试用</button>
+                </div>
             </div>
         </div>
     </nav>
 
+    <!-- 页面标题 -->
+    <section class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 class="text-3xl font-bold">项目列表</h1>
+            <p class="mt-2 text-blue-100">浏览最新招标项目，发现投标机会</p>
+        </div>
+    </section>
+
     <!-- 搜索和筛选 -->
-    <section class="search-section" style="padding: 24px;">
-        <div class="page-container">
-            <div class="search-card" style="padding: 20px; gap: 12px;">
+    <section class="py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
                 <!-- 第一行：关键词搜索 -->
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%; align-items: center;">
-                    <div class="search-input-wrapper" style="flex: 3; min-width: 280px;">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="searchInput" placeholder="搜索项目名称、地点、关键词..." class="input" style="font-size: 14px; padding: 10px 12px 10px 40px; border-radius: 10px; border: 1px solid var(--notion-border); transition: all 0.3s;">
+                <div class="flex gap-4 flex-wrap items-center mb-4">
+                    <div class="flex-1 min-w-[280px] relative">
+                        <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+                        <input type="text" id="searchInput" placeholder="搜索项目名称、地点、关键词..." 
+                            class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
-                    <div class="filter-select-wrapper" style="flex: 1; min-width: 140px;">
-                        <select id="categorySelect" class="input" style="font-size: 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); cursor: pointer;">
-                            <option value="">📦 所有行业</option>
-                            <option value="电力设备">⚡ 电力设备</option>
-                            <option value="政府采购">🏛️ 政府采购</option>
-                        </select>
-                    </div>
-                    <div class="search-btn-wrapper">
-                        <button onclick="loadProjects()" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px; border-radius: 10px; font-weight: 600;">
-                            <span>🔍</span> 搜索
-                        </button>
-                    </div>
+                    <select id="categorySelect" class="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-w-[160px]">
+                        <option value="">📦 所有行业</option>
+                        <option value="电力设备">⚡ 电力设备</option>
+                        <option value="政府采购">🏛️ 政府采购</option>
+                    </select>
+                    <button onclick="loadProjects()" class="bg-primary hover:bg-secondary text-white px-6 py-3 rounded-lg font-medium transition">
+                        🔍 搜索
+                    </button>
                 </div>
                 
                 <!-- 第二行：时间筛选 -->
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; width: 100%; padding-top: 10px; border-top: 1px solid var(--notion-border);">
-                    <span style="font-size: 13px; color: var(--notion-text-tertiary); font-weight: 500;">📅 时间：</span>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button onclick="setDateFilter('today')" class="date-filter-btn" id="dateToday" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">今天</button>
-                        <button onclick="setDateFilter('week')" class="date-filter-btn" id="dateWeek" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近7天</button>
-                        <button onclick="setDateFilter('month')" class="date-filter-btn" id="dateMonth" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近30天</button>
-                        <button onclick="setDateFilter('all')" class="date-filter-btn active" id="dateAll" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-accent-blue); background: #E8F4FD; color: var(--notion-accent-blue); cursor: pointer; transition: all 0.2s; font-weight: 600;">全部</button>
+                <div class="flex gap-4 flex-wrap items-center pt-4 border-t border-gray-200">
+                    <span class="text-sm text-gray-500 font-medium">📅 时间：</span>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setDateFilter('today')" class="date-filter-btn" id="dateToday">今天</button>
+                        <button onclick="setDateFilter('week')" class="date-filter-btn" id="dateWeek">近7天</button>
+                        <button onclick="setDateFilter('month')" class="date-filter-btn" id="dateMonth">近30天</button>
+                        <button onclick="setDateFilter('all')" class="date-filter-btn active" id="dateAll">全部</button>
                     </div>
-                    <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
-                        <span style="font-size: 12px; color: var(--notion-text-tertiary);">自定义</span>
-                        <input type="date" id="dateStart" class="input" style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--notion-border); width: 120px;">
-                        <span style="color: var(--notion-text-tertiary); font-size: 12px;">~</span>
-                        <input type="date" id="dateEnd" class="input" style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--notion-border); width: 120px;">
+                    <div class="ml-auto flex gap-2 items-center">
+                        <span class="text-xs text-gray-500">自定义</span>
+                        <input type="date" id="dateStart" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <span class="text-gray-400">~</span>
+                        <input type="date" id="dateEnd" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                 </div>
             </div>
@@ -465,62 +141,69 @@
     </section>
 
     <!-- 项目列表 -->
-    <section class="projects-section">
-        <div class="page-container">
+    <section class="pb-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- 统计信息 -->
-            <div id="statsBar" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0 12px; padding: 12px 16px; background: var(--notion-bg-primary); border-radius: 10px; border: 1px solid var(--notion-border);">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 16px;">📊</span>
-                    <span id="projectCount" style="font-size: 14px; color: var(--notion-text-primary); font-weight: 600;">共找到 0 个项目</span>
+            <div id="statsBar" class="flex justify-between items-center my-4 p-4 bg-white rounded-xl shadow">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📊</span>
+                    <span id="projectCount" class="text-gray-700 font-semibold">共找到 0 个项目</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--notion-text-tertiary);">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
                     <span>🕐</span>
                     <span>更新时间：<span id="updateTime">--</span></span>
                 </div>
             </div>
             
             <!-- 骨架屏（初始加载） -->
-            <div id="skeletonGrid" class="skeleton-grid">
-                <div class="skeleton-card">
-                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
-                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+            <div id="skeletonGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="skeleton-line h-6 w-24 mb-4"></div>
+                    <div class="skeleton-line h-5 w-full mb-3"></div>
+                    <div class="skeleton-line h-4 w-3/4 mb-4"></div>
+                    <div class="skeleton-line h-8 w-32"></div>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
-                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="skeleton-line h-6 w-24 mb-4"></div>
+                    <div class="skeleton-line h-5 w-full mb-3"></div>
+                    <div class="skeleton-line h-4 w-3/4 mb-4"></div>
+                    <div class="skeleton-line h-8 w-32"></div>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-line" style="height: 24px; width: 100px; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 20px; width: 100%; margin-bottom: 12px;"></div>
-                    <div class="skeleton-line" style="height: 16px; width: 80%; margin-bottom: 20px;"></div>
-                    <div class="skeleton-line" style="height: 32px; width: 120px;"></div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="skeleton-line h-6 w-24 mb-4"></div>
+                    <div class="skeleton-line h-5 w-full mb-3"></div>
+                    <div class="skeleton-line h-4 w-3/4 mb-4"></div>
+                    <div class="skeleton-line h-8 w-32"></div>
                 </div>
             </div>
             
             <!-- 项目网格 -->
-            <div id="projectsGrid" class="projects-grid" style="display: none;">
+            <div id="projectsGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" style="display: none;">
                 <!-- 项目卡片由 JavaScript 动态加载 -->
             </div>
             
             <!-- 加载状态 -->
-            <div id="loading" class="loading-container" style="display: none;">
-                <div class="spinner-wrapper">
-                    <div class="spinner"></div>
-                    <p class="loading-text">正在加载项目数据...</p>
+            <div id="loading" class="text-center py-20" style="display: none;">
+                <div class="inline-flex flex-col items-center gap-4">
+                    <div class="w-14 h-14 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+                    <p class="text-gray-600 font-medium">正在加载项目数据...</p>
                 </div>
             </div>
             
             <!-- 空状态 -->
-            <div id="emptyState" class="empty-state" style="display: none;">
-                <div class="empty-state-icon">📭</div>
-                <p>暂无匹配的项目数据</p>
+            <div id="emptyState" class="text-center py-20" style="display: none;">
+                <div class="text-5xl mb-4 opacity-50">📭</div>
+                <p class="text-gray-600">暂无匹配的项目数据</p>
             </div>
         </div>
     </section>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-gray-400">&copy; 2026 投标引擎。All rights reserved.</p>
+        </div>
+    </footer>
 
     <script>
         const API_BASE = 'https://tender-engine-backend-production.up.railway.app';
@@ -532,18 +215,12 @@
             
             // 更新按钮样式
             document.querySelectorAll('.date-filter-btn').forEach(btn => {
-                btn.style.border = '1px solid var(--notion-border)';
-                btn.style.background = 'var(--notion-bg-primary)';
-                btn.style.color = 'var(--notion-text-secondary)';
-                btn.style.fontWeight = '400';
+                btn.classList.remove('active');
             });
             
             const activeBtn = document.getElementById('date' + filter.charAt(0).toUpperCase() + filter.slice(1));
             if (activeBtn) {
-                activeBtn.style.border = '1px solid var(--notion-accent-blue)';
-                activeBtn.style.background = '#E8F4FD';
-                activeBtn.style.color = 'var(--notion-accent-blue)';
-                activeBtn.style.fontWeight = '600';
+                activeBtn.classList.add('active');
             }
             
             // 清空自定义日期
@@ -647,31 +324,29 @@
 
                 projects.forEach((project, index) => {
                     const card = document.createElement('a');
-                    card.className = 'project-card';
+                    card.className = 'project-card bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover:shadow-xl hover:border-primary transition-all duration-300 cursor-pointer block';
                     card.href = `/project-detail?id=${project.id}`;
                     card.style.animationDelay = `${index * 0.05}s`;
                     
-                    const categoryClass = project.category === '电力招标' ? 'power' : 'gov';
+                    const categoryBg = project.category === '电力招标' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
                     const categoryIcon = project.category === '电力招标' ? '⚡' : '🏛️';
                     
                     card.innerHTML = `
-                        <div class="project-card-header">
-                            <span class="category-badge ${categoryClass}">${categoryIcon} ${project.category}</span>
-                            <span class="deadline-badge">📅 ${project.publish_date} 发布</span>
+                        <div class="flex justify-between items-start mb-4 gap-3">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${categoryBg}">${categoryIcon} ${project.category}</span>
+                            <span class="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">📅 ${project.publish_date}</span>
                         </div>
-                        <div class="project-card-body">
-                            <h3 class="project-title">${project.name}</h3>
+                        <h3 class="text-lg font-bold mb-3 text-gray-800 line-clamp-2">${project.name}</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="bg-yellow-50 text-yellow-800 px-3 py-1 rounded-full text-sm font-bold">💰 ¥${(project.budget / 10000).toFixed(0)}万</span>
+                            <span class="text-sm text-gray-500">📍 ${project.location}</span>
                         </div>
-                        <div class="project-meta-row">
-                            <span class="project-price">💰 ¥${(project.budget / 10000).toFixed(0)}万</span>
-                            <span class="project-location">📍 ${project.location}</span>
-                        </div>
-                        <div class="project-card-footer">
-                            <span class="project-source">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--notion-accent-green); display: inline-block;"></span>
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+                            <span class="text-xs text-gray-500 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-green-500"></span>
                                 ${project.source_site}
                             </span>
-                            <span class="project-view-btn">查看详情 →</span>
+                            <span class="text-primary font-semibold text-sm hover:underline">查看详情 →</span>
                         </div>
                     `;
                     grid.appendChild(card);
@@ -680,10 +355,10 @@
                 loading.style.display = 'none';
                 skeletonGrid.style.display = 'none';
                 grid.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 48px;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-                        <p style="color: var(--notion-accent-red); font-weight: 500;">加载失败：${error.message}</p>
-                        <button onclick="loadProjects()" class="btn btn-secondary" style="margin-top: 16px;">重试</button>
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-5xl mb-4">⚠️</div>
+                        <p class="text-red-600 font-medium">加载失败：${error.message}</p>
+                        <button onclick="loadProjects()" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition">重试</button>
                     </div>
                 `;
                 grid.style.display = 'grid';
