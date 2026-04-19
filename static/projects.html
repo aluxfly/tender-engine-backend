@@ -429,43 +429,43 @@
     </section>
 
     <!-- 搜索和筛选 -->
-    <section class="search-section">
+    <section class="search-section" style="padding: 24px;">
         <div class="page-container">
-            <div class="search-card" style="flex-direction: column; gap: 20px;">
+            <div class="search-card" style="padding: 20px; gap: 12px;">
                 <!-- 第一行：关键词搜索 -->
-                <div style="display: flex; gap: 16px; flex-wrap: wrap; width: 100%;">
-                    <div class="search-input-wrapper" style="flex: 3; min-width: 300px;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%; align-items: center;">
+                    <div class="search-input-wrapper" style="flex: 3; min-width: 280px;">
                         <span class="search-icon">🔍</span>
-                        <input type="text" id="searchInput" placeholder="搜索项目名称、地点、关键词..." class="input" style="font-size: 16px; padding: 14px 16px 14px 48px; border-radius: 12px; border: 2px solid var(--notion-border); transition: all 0.3s;">
+                        <input type="text" id="searchInput" placeholder="搜索项目名称、地点、关键词..." class="input" style="font-size: 14px; padding: 10px 12px 10px 40px; border-radius: 10px; border: 1px solid var(--notion-border); transition: all 0.3s;">
                     </div>
-                    <div class="filter-select-wrapper" style="flex: 1; min-width: 160px;">
-                        <select id="categorySelect" class="input" style="font-size: 15px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--notion-border); background: var(--notion-bg-primary); cursor: pointer;">
+                    <div class="filter-select-wrapper" style="flex: 1; min-width: 140px;">
+                        <select id="categorySelect" class="input" style="font-size: 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); cursor: pointer;">
                             <option value="">📦 所有行业</option>
                             <option value="电力设备">⚡ 电力设备</option>
                             <option value="政府采购">🏛️ 政府采购</option>
                         </select>
                     </div>
                     <div class="search-btn-wrapper">
-                        <button onclick="loadProjects()" class="btn btn-primary" style="padding: 14px 28px; font-size: 15px; border-radius: 12px; font-weight: 600;">
+                        <button onclick="loadProjects()" class="btn btn-primary" style="padding: 10px 20px; font-size: 14px; border-radius: 10px; font-weight: 600;">
                             <span>🔍</span> 搜索
                         </button>
                     </div>
                 </div>
                 
                 <!-- 第二行：时间筛选 -->
-                <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center; width: 100%; padding-top: 8px; border-top: 1px solid var(--notion-border);">
-                    <span style="font-size: 14px; color: var(--notion-text-tertiary); font-weight: 500;">📅 发布时间：</span>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button onclick="setDateFilter('today')" class="date-filter-btn" id="dateToday" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">今天</button>
-                        <button onclick="setDateFilter('week')" class="date-filter-btn" id="dateWeek" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近7天</button>
-                        <button onclick="setDateFilter('month')" class="date-filter-btn" id="dateMonth" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近30天</button>
-                        <button onclick="setDateFilter('all')" class="date-filter-btn active" id="dateAll" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-accent-blue); background: #E8F4FD; color: var(--notion-accent-blue); cursor: pointer; transition: all 0.2s; font-weight: 600;">全部</button>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; width: 100%; padding-top: 10px; border-top: 1px solid var(--notion-border);">
+                    <span style="font-size: 13px; color: var(--notion-text-tertiary); font-weight: 500;">📅 时间：</span>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button onclick="setDateFilter('today')" class="date-filter-btn" id="dateToday" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">今天</button>
+                        <button onclick="setDateFilter('week')" class="date-filter-btn" id="dateWeek" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近7天</button>
+                        <button onclick="setDateFilter('month')" class="date-filter-btn" id="dateMonth" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近30天</button>
+                        <button onclick="setDateFilter('all')" class="date-filter-btn active" id="dateAll" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--notion-accent-blue); background: #E8F4FD; color: var(--notion-accent-blue); cursor: pointer; transition: all 0.2s; font-weight: 600;">全部</button>
                     </div>
-                    <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-                        <span style="font-size: 13px; color: var(--notion-text-tertiary);">自定义：</span>
-                        <input type="date" id="dateStart" class="input" style="font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--notion-border); width: 140px;">
-                        <span style="color: var(--notion-text-tertiary);">至</span>
-                        <input type="date" id="dateEnd" class="input" style="font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--notion-border); width: 140px;">
+                    <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+                        <span style="font-size: 12px; color: var(--notion-text-tertiary);">自定义</span>
+                        <input type="date" id="dateStart" class="input" style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--notion-border); width: 120px;">
+                        <span style="color: var(--notion-text-tertiary); font-size: 12px;">~</span>
+                        <input type="date" id="dateEnd" class="input" style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--notion-border); width: 120px;">
                     </div>
                 </div>
             </div>
@@ -476,12 +476,12 @@
     <section class="projects-section">
         <div class="page-container">
             <!-- 统计信息 -->
-            <div id="statsBar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 16px 20px; background: var(--notion-bg-primary); border-radius: 12px; border: 1px solid var(--notion-border);">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 20px;">📊</span>
-                    <span id="projectCount" style="font-size: 15px; color: var(--notion-text-primary); font-weight: 600;">共找到 0 个项目</span>
+            <div id="statsBar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: var(--notion-bg-primary); border-radius: 10px; border: 1px solid var(--notion-border);">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 16px;">📊</span>
+                    <span id="projectCount" style="font-size: 14px; color: var(--notion-text-primary); font-weight: 600;">共找到 0 个项目</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--notion-text-tertiary);">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--notion-text-tertiary);">
                     <span>🕐</span>
                     <span>更新时间：<span id="updateTime">--</span></span>
                 </div>
