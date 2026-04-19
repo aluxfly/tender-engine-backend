@@ -112,70 +112,67 @@ def get_db_connection():
 
 
 def init_database():
-    """初始化数据库 - 如果为空则加载初始数据"""
+    """初始化数据库 - 强制重新加载初始数据"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 检查表是否存在
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bid_notices'")
-        if not cursor.fetchone():
-            logger.info("创建 bid_notices 表...")
-            cursor.execute('''
-                CREATE TABLE bid_notices (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    region TEXT,
-                    budget REAL,
-                    deadline TEXT,
-                    description TEXT,
-                    source_url TEXT,
-                    source_site TEXT,
-                    category TEXT,
-                    publish_date TEXT,
-                    crawl_time TEXT DEFAULT CURRENT_TIMESTAMP,
-                    content_hash TEXT
-                )
-            ''')
-            conn.commit()
+        # 删除旧表并重新创建
+        cursor.execute("DROP TABLE IF EXISTS bid_notices")
+        logger.info("删除旧表...")
         
-        # 检查数据是否为空
-        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
-        count = cursor.fetchone()['count']
+        logger.info("创建 bid_notices 表...")
+        cursor.execute('''
+            CREATE TABLE bid_notices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                region TEXT,
+                budget REAL,
+                deadline TEXT,
+                description TEXT,
+                source_url TEXT,
+                source_site TEXT,
+                category TEXT,
+                publish_date TEXT,
+                crawl_time TEXT DEFAULT CURRENT_TIMESTAMP,
+                content_hash TEXT
+            )
+        ''')
+        conn.commit()
         
-        if count == 0:
-            logger.info("数据库为空，加载初始数据...")
-            initial_data_path = Path(__file__).parent / 'initial_data.json'
+        # 加载初始数据
+        logger.info("加载初始数据...")
+        initial_data_path = Path(__file__).parent / 'initial_data.json'
+        
+        if initial_data_path.exists():
+            import json
+            with open(initial_data_path, 'r', encoding='utf-8') as f:
+                initial_data = json.load(f)
             
-            if initial_data_path.exists():
-                import json
-                with open(initial_data_path, 'r', encoding='utf-8') as f:
-                    initial_data = json.load(f)
-                
-                for item in initial_data:
-                    cursor.execute('''
-                        INSERT INTO bid_notices 
-                        (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        item['title'],
-                        item['region'],
-                        item['budget'],
-                        item['deadline'],
-                        item['description'],
-                        item['source_url'],
-                        item['source_site'],
-                        item['category'],
-                        item['publish_date']
-                    ))
-                
-                conn.commit()
-                logger.info(f"已加载 {len(initial_data)} 条初始数据")
-            else:
-                logger.warning("初始数据文件不存在")
+            for item in initial_data:
+                cursor.execute('''
+                    INSERT INTO bid_notices 
+                    (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    item['title'],
+                    item['region'],
+                    item['budget'],
+                    item['deadline'],
+                    item['description'],
+                    item['source_url'],
+                    item['source_site'],
+                    item['category'],
+                    item['publish_date']
+                ))
+            
+            conn.commit()
+            logger.info(f"已加载 {len(initial_data)} 条初始数据")
+        else:
+            logger.warning("初始数据文件不存在")
         
         conn.close()
-        logger.info(f"数据库初始化完成，当前数据量：{count if count > 0 else len(initial_data)} 条")
+        logger.info(f"数据库初始化完成")
         
     except Exception as e:
         logger.error(f"数据库初始化失败：{e}")
