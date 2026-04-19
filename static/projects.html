@@ -431,22 +431,42 @@
     <!-- 搜索和筛选 -->
     <section class="search-section">
         <div class="page-container">
-            <div class="search-card">
-                <div class="search-input-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="搜索项目名称、地点..." class="input">
+            <div class="search-card" style="flex-direction: column; gap: 20px;">
+                <!-- 第一行：关键词搜索 -->
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; width: 100%;">
+                    <div class="search-input-wrapper" style="flex: 3; min-width: 300px;">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="搜索项目名称、地点、关键词..." class="input" style="font-size: 16px; padding: 14px 16px 14px 48px; border-radius: 12px; border: 2px solid var(--notion-border); transition: all 0.3s;">
+                    </div>
+                    <div class="filter-select-wrapper" style="flex: 1; min-width: 160px;">
+                        <select id="categorySelect" class="input" style="font-size: 15px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--notion-border); background: var(--notion-bg-primary); cursor: pointer;">
+                            <option value="">📦 所有行业</option>
+                            <option value="电力设备">⚡ 电力设备</option>
+                            <option value="政府采购">🏛️ 政府采购</option>
+                        </select>
+                    </div>
+                    <div class="search-btn-wrapper">
+                        <button onclick="loadProjects()" class="btn btn-primary" style="padding: 14px 28px; font-size: 15px; border-radius: 12px; font-weight: 600;">
+                            <span>🔍</span> 搜索
+                        </button>
+                    </div>
                 </div>
-                <div class="filter-select-wrapper">
-                    <select id="categorySelect" class="input">
-                        <option value="">所有行业</option>
-                        <option value="政府采购">🏛️ 政府采购</option>
-                        <option value="电力招标">⚡ 电力招标</option>
-                    </select>
-                </div>
-                <div class="search-btn-wrapper">
-                    <button onclick="loadProjects()" class="btn btn-primary">
-                        <span>🔍</span> 搜索
-                    </button>
+                
+                <!-- 第二行：时间筛选 -->
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center; width: 100%; padding-top: 8px; border-top: 1px solid var(--notion-border);">
+                    <span style="font-size: 14px; color: var(--notion-text-tertiary); font-weight: 500;">📅 发布时间：</span>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button onclick="setDateFilter('today')" class="date-filter-btn" id="dateToday" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">今天</button>
+                        <button onclick="setDateFilter('week')" class="date-filter-btn" id="dateWeek" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近7天</button>
+                        <button onclick="setDateFilter('month')" class="date-filter-btn" id="dateMonth" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-border); background: var(--notion-bg-primary); color: var(--notion-text-secondary); cursor: pointer; transition: all 0.2s;">近30天</button>
+                        <button onclick="setDateFilter('all')" class="date-filter-btn active" id="dateAll" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; border: 1px solid var(--notion-accent-blue); background: #E8F4FD; color: var(--notion-accent-blue); cursor: pointer; transition: all 0.2s; font-weight: 600;">全部</button>
+                    </div>
+                    <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 13px; color: var(--notion-text-tertiary);">自定义：</span>
+                        <input type="date" id="dateStart" class="input" style="font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--notion-border); width: 140px;">
+                        <span style="color: var(--notion-text-tertiary);">至</span>
+                        <input type="date" id="dateEnd" class="input" style="font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--notion-border); width: 140px;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -500,6 +520,61 @@
 
     <script>
         const API_BASE = 'https://tender-engine-backend-production.up.railway.app';
+        let currentDateFilter = 'all';
+
+        // 设置日期筛选
+        function setDateFilter(filter) {
+            currentDateFilter = filter;
+            
+            // 更新按钮样式
+            document.querySelectorAll('.date-filter-btn').forEach(btn => {
+                btn.style.border = '1px solid var(--notion-border)';
+                btn.style.background = 'var(--notion-bg-primary)';
+                btn.style.color = 'var(--notion-text-secondary)';
+                btn.style.fontWeight = '400';
+            });
+            
+            const activeBtn = document.getElementById('date' + filter.charAt(0).toUpperCase() + filter.slice(1));
+            if (activeBtn) {
+                activeBtn.style.border = '1px solid var(--notion-accent-blue)';
+                activeBtn.style.background = '#E8F4FD';
+                activeBtn.style.color = 'var(--notion-accent-blue)';
+                activeBtn.style.fontWeight = '600';
+            }
+            
+            // 清空自定义日期
+            if (filter !== 'custom') {
+                document.getElementById('dateStart').value = '';
+                document.getElementById('dateEnd').value = '';
+            }
+            
+            loadProjects();
+        }
+
+        // 获取日期范围
+        function getDateRange() {
+            const today = new Date();
+            const formatDate = (d) => d.toISOString().split('T')[0];
+            
+            switch(currentDateFilter) {
+                case 'today':
+                    return { start: formatDate(today), end: formatDate(today) };
+                case 'week':
+                    const weekAgo = new Date(today);
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return { start: formatDate(weekAgo), end: formatDate(today) };
+                case 'month':
+                    const monthAgo = new Date(today);
+                    monthAgo.setDate(monthAgo.getDate() - 30);
+                    return { start: formatDate(monthAgo), end: formatDate(today) };
+                case 'custom':
+                    const start = document.getElementById('dateStart').value;
+                    const end = document.getElementById('dateEnd').value;
+                    return { start, end };
+                default:
+                    return { start: null, end: null };
+            }
+        }
 
         async function loadProjects() {
             const skeletonGrid = document.getElementById('skeletonGrid');
@@ -522,6 +597,7 @@
                 // 应用搜索和筛选
                 const searchTerm = searchInput.value.toLowerCase();
                 const category = categorySelect.value;
+                const dateRange = getDateRange();
                 
                 if (searchTerm) {
                     projects = projects.filter(p => 
@@ -533,6 +609,14 @@
                 
                 if (category) {
                     projects = projects.filter(p => p.category === category);
+                }
+                
+                // 时间筛选
+                if (dateRange.start && dateRange.end) {
+                    projects = projects.filter(p => {
+                        if (!p.publish_date) return false;
+                        return p.publish_date >= dateRange.start && p.publish_date <= dateRange.end;
+                    });
                 }
 
                 loading.style.display = 'none';
@@ -601,6 +685,21 @@
         // 分类选择变化触发
         document.getElementById('categorySelect').addEventListener('change', function() {
             loadProjects();
+        });
+
+        // 自定义日期选择触发
+        document.getElementById('dateStart').addEventListener('change', function() {
+            currentDateFilter = 'custom';
+            if (document.getElementById('dateEnd').value) {
+                loadProjects();
+            }
+        });
+        
+        document.getElementById('dateEnd').addEventListener('change', function() {
+            currentDateFilter = 'custom';
+            if (document.getElementById('dateStart').value) {
+                loadProjects();
+            }
         });
 
         // 页面加载时获取数据
