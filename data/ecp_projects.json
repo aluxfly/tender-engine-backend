@@ -1,0 +1,35 @@
+{
+  "crawl_info": {
+    "crawl_time": "2026-04-20T21:58:45.225954",
+    "total_projects": 4,
+    "new_projects": 4,
+    "pages_crawled": 2,
+    "source": "https://ecp.sgcc.com.cn"
+  },
+  "projects": [
+    {
+      "project_id": "26OTL04412027",
+      "create_time": "2026-04-17",
+      "status": "正在招标",
+      "project_name": "【国家电网有限公司】国家电网有限公司2026年特高压项目第二次设备公开招标采购"
+    },
+    {
+      "project_id": "26OTL04213025",
+      "create_time": "2026-04-17",
+      "status": "正在招标",
+      "project_name": "【国家电网有限公司】国家电网有限公司2026年特高压项目第二次服务公开招标采购"
+    },
+    {
+      "project_id": "26OTL05112029",
+      "create_time": "2026-04-17",
+      "status": "正在招标",
+      "project_name": "【国家电网有限公司】国家电网有限公司2026年数字化项目第一次设备公开招标采购"
+    },
+    {
+      "project_id": "26OTL04313026",
+      "create_time": "2026-04-17",
+      "status": "正在招标",
+      "project_name": "【国家电网有限公司】国家电网有限公司2026年特高压项目第二次前期服务公开招标采购"
+    }
+  ]
+}
