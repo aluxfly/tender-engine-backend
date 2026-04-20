@@ -243,7 +243,8 @@ def root():
             "predict": "POST /api/predict",
             "bid_generate": "POST /api/bid/generate",
             "stats": "GET /api/stats",
-            "crawl": "POST /api/crawl"
+            "crawl": "POST /api/crawl",
+            "reload_data": "POST /api/reload-data"
         }
     }
 
@@ -595,6 +596,61 @@ def trigger_crawl():
     except Exception as e:
         logger.error(f"爬虫任务失败：{e}")
         raise HTTPException(status_code=500, detail=f"爬虫执行失败：{str(e)}")
+
+
+@app.post("/api/reload-data")
+def reload_initial_data():
+    """手动重新加载初始数据（用于 Railway 重置后恢复数据）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 清空现有数据
+        cursor.execute("DELETE FROM bid_notices")
+        conn.commit()
+        logger.info("已清空现有数据...")
+        
+        # 加载初始数据
+        initial_data_path = Path(__file__).parent / 'initial_data.json'
+        
+        if not initial_data_path.exists():
+            raise HTTPException(status_code=500, detail="初始数据文件不存在")
+        
+        with open(initial_data_path, 'r', encoding='utf-8') as f:
+            initial_data = json.load(f)
+        
+        for item in initial_data:
+            cursor.execute('''
+                INSERT INTO bid_notices 
+                (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                item['title'],
+                item['region'],
+                item['budget'],
+                item['deadline'],
+                item['description'],
+                item['source_url'],
+                item['source_site'],
+                item['category'],
+                item['publish_date']
+            ))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"已重新加载 {len(initial_data)} 条初始数据")
+        
+        return {
+            "status": "success",
+            "message": f"已重新加载 {len(initial_data)} 条初始数据",
+            "count": len(initial_data)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重新加载数据失败：{e}")
+        raise HTTPException(status_code=500, detail=f"重新加载失败：{str(e)}")
 
 
 if __name__ == "__main__":
