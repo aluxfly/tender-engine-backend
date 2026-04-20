@@ -131,6 +131,7 @@ def init_database():
                     description TEXT,
                     source_url TEXT,
                     source_site TEXT,
+                    source TEXT,
                     category TEXT,
                     publish_date TEXT,
                     crawl_time TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -138,6 +139,14 @@ def init_database():
                 )
             ''')
             conn.commit()
+        else:
+            # 迁移：检查是否有 source 字段
+            cursor.execute("PRAGMA table_info(bid_notices)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'source' not in columns:
+                logger.info("添加 source 字段...")
+                cursor.execute("ALTER TABLE bid_notices ADD COLUMN source TEXT")
+                conn.commit()
         
         # 检查数据是否为空
         cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
@@ -155,8 +164,8 @@ def init_database():
                 for item in initial_data:
                     cursor.execute('''
                         INSERT INTO bid_notices 
-                        (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         item['title'],
                         item['region'],
@@ -165,6 +174,7 @@ def init_database():
                         item['description'],
                         item['source_url'],
                         item['source_site'],
+                        item.get('source', ''),
                         item['category'],
                         item['publish_date']
                     ))
@@ -265,7 +275,7 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
         # 构建查询
         query = '''
             SELECT id, title as name, budget, deadline, category, region as location, 
-                   description, source_url, source_site, publish_date
+                   description, source_url, source_site, source, publish_date
             FROM bid_notices
             WHERE 1=1
         '''
@@ -299,6 +309,7 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
                 'description': row['description'],
                 'source_url': row['source_url'],
                 'source_site': row['source_site'],
+                'source': row['source'],
                 'publish_date': row['publish_date']
             })
         
@@ -622,8 +633,8 @@ def reload_initial_data():
         for item in initial_data:
             cursor.execute('''
                 INSERT INTO bid_notices 
-                (title, region, budget, deadline, description, source_url, source_site, category, publish_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 item['title'],
                 item['region'],
@@ -632,6 +643,7 @@ def reload_initial_data():
                 item['description'],
                 item['source_url'],
                 item['source_site'],
+                item.get('source', ''),
                 item['category'],
                 item['publish_date']
             ))
