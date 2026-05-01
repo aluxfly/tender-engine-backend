@@ -1075,8 +1075,8 @@ def get_stats():
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # 总数
-        cursor.execute('SELECT COUNT(*) FROM bid_notices')
-        total = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
+        total = cursor.fetchone()["count"]
 
         # 按来源统计
         cursor.execute('SELECT source_site, COUNT(*) as count FROM bid_notices GROUP BY source_site')
