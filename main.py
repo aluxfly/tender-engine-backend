@@ -1,6 +1,6 @@
 """
 投标公司赚钱引擎 MVP 后端 API
-FastAPI 单文件实现
+FastAPI 单文件实现 - PostgreSQL 数据库
 """
 
 from fastapi import FastAPI, HTTPException
@@ -15,14 +15,38 @@ from datetime import datetime
 from docx import Document
 from io import BytesIO
 from fastapi.responses import StreamingResponse
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from pathlib import Path
 import logging
 import json
+import os
+import urllib.parse
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# ==================== 数据库配置 ====================
+
+def get_database_url():
+    """获取数据库连接 URL"""
+    url = os.environ.get('DATABASE_URL')
+    if url:
+        return url
+    # 本地开发默认（可选）
+    return None
+
+
+def get_db_connection():
+    """获取数据库连接"""
+    db_url = get_database_url()
+    if not db_url:
+        raise RuntimeError("DATABASE_URL 环境变量未设置，无法连接数据库")
+    # psycopg2 需要 postgresql:// 前缀，Railway 通常提供 postgresql:// 或 postgres://
+    conn = psycopg2.connect(db_url)
+    return conn
 
 
 @asynccontextmanager
@@ -40,7 +64,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="投标公司赚钱引擎 API",
     description="MVP 版本 - 项目查询、中标预测、标书生成",
-    version="1.0.0",
+    version="1.2.0",
     lifespan=lifespan
 )
 
@@ -52,11 +76,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 前端页面由手动路由服务（见下方 @app.get("/") 等）
-
-# 数据库路径
-DB_PATH = Path(__file__).parent / 'database.db'
 
 # 静态文件目录
 STATIC_DIR = Path(__file__).parent / 'static'
@@ -104,26 +123,31 @@ async def serve_bid():
     raise HTTPException(status_code=404, detail="Page not found")
 
 
-def get_db_connection():
-    """获取数据库连接"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def init_database():
-    """初始化数据库 - 如果为空则加载初始数据"""
+    """初始化数据库 - 创建表并加载初始数据"""
+    db_url = get_database_url()
+    if not db_url:
+        logger.warning("DATABASE_URL 未设置，跳过数据库初始化")
+        return
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 检查表是否存在
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bid_notices'")
-        if not cursor.fetchone():
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'bid_notices'
+            )
+        """)
+        table_exists = cursor.fetchone()[0]
+
+        if not table_exists:
             logger.info("创建 bid_notices 表...")
             cursor.execute('''
                 CREATE TABLE bid_notices (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     title TEXT NOT NULL,
                     region TEXT,
                     budget REAL,
@@ -134,67 +158,76 @@ def init_database():
                     source TEXT,
                     category TEXT,
                     publish_date TEXT,
-                    crawl_time TEXT DEFAULT CURRENT_TIMESTAMP,
-                    content_hash TEXT
+                    crawl_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    content_hash TEXT,
+                    project_code TEXT,
+                    status TEXT
                 )
             ''')
             conn.commit()
+            logger.info("bid_notices 表创建成功")
         else:
-            # 迁移：检查是否有 source 字段
-            cursor.execute("PRAGMA table_info(bid_notices)")
-            columns = [row[1] for row in cursor.fetchall()]
-            if 'source' not in columns:
-                logger.info("添加 source 字段...")
-                cursor.execute("ALTER TABLE bid_notices ADD COLUMN source TEXT")
-                conn.commit()
-        
+            # 迁移：检查并添加缺失的列
+            cursor.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'bid_notices'
+            """)
+            columns = [row[0] for row in cursor.fetchall()]
+            migration_cols = {
+                'source': 'TEXT',
+                'content_hash': 'TEXT',
+                'project_code': 'TEXT',
+                'status': 'TEXT'
+            }
+            for col_name, col_type in migration_cols.items():
+                if col_name not in columns:
+                    logger.info(f"添加 {col_name} 字段...")
+                    cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col_name} {col_type}")
+                    conn.commit()
+
         # 检查数据是否为空
-        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
-        count = cursor.fetchone()['count']
-        
+        cursor.execute('SELECT COUNT(*) FROM bid_notices')
+        count = cursor.fetchone()[0]
+
         if count == 0:
             logger.info("数据库为空，加载初始数据...")
             initial_data_path = Path(__file__).parent / 'initial_data.json'
-            
+
             if initial_data_path.exists():
-                import json
                 with open(initial_data_path, 'r', encoding='utf-8') as f:
                     initial_data = json.load(f)
-                
+
                 for item in initial_data:
                     cursor.execute('''
-                        INSERT INTO bid_notices 
+                        INSERT INTO bid_notices
                         (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ''', (
-                        item['title'],
-                        item['region'],
-                        item['budget'],
-                        item['deadline'],
-                        item['description'],
-                        item['source_url'],
-                        item['source_site'],
+                        item.get('title', ''),
+                        item.get('region', ''),
+                        item.get('budget'),
+                        item.get('deadline', ''),
+                        item.get('description', ''),
+                        item.get('source_url', ''),
+                        item.get('source_site', ''),
                         item.get('source', ''),
-                        item['category'],
-                        item['publish_date']
+                        item.get('category', ''),
+                        item.get('publish_date', '')
                     ))
-                
+
                 conn.commit()
                 logger.info(f"已加载 {len(initial_data)} 条初始数据")
             else:
                 logger.warning("初始数据文件不存在")
         else:
             logger.info(f"数据库已有 {count} 条数据，跳过初始化")
-        
+
+        cursor.close()
         conn.close()
-        logger.info(f"数据库初始化完成")
-        
+        logger.info("数据库初始化完成")
+
     except Exception as e:
         logger.error(f"数据库初始化失败：{e}")
-
-
-# ==================== 模拟数据已删除 ====================
-# 只使用数据库真实数据，不再提供模拟数据降级
 
 
 # ==================== 请求/响应模型 ====================
@@ -228,22 +261,22 @@ class BidGenerateRequest(BaseModel):
 @app.get("/")
 def root():
     """API 首页"""
-    # 获取数据库统计
     db_stats = {"total": 0}
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
+        cursor.execute('SELECT COUNT(*) FROM bid_notices')
         row = cursor.fetchone()
         if row:
-            db_stats["total"] = row["count"]
+            db_stats["total"] = row[0]
+        cursor.close()
         conn.close()
-    except:
-        pass
-    
+    except Exception as e:
+        logger.warning(f"数据库查询失败: {e}")
+
     return {
         "message": "投标公司赚钱引擎 API - 真实数据版本",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "database": {
             "total_notices": db_stats["total"],
             "status": "active" if db_stats["total"] > 0 else "empty"
@@ -263,39 +296,40 @@ def root():
 def get_projects(category: Optional[str] = None, location: Optional[str] = None, limit: int = 50):
     """
     获取项目列表（真实招标数据）
-    
+
     - category: 按类别筛选（可选）
     - location: 按地点筛选（可选）
     - limit: 返回数量限制（默认 50）
     """
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
         # 构建查询
         query = '''
-            SELECT id, title as name, budget, deadline, category, region as location, 
+            SELECT id, title as name, budget, deadline, category, region as location,
                    description, source_url, source_site, source, publish_date
             FROM bid_notices
             WHERE 1=1
         '''
         params = []
-        
+
         if category:
-            query += ' AND category LIKE ?'
+            query += ' AND category LIKE %s'
             params.append(f'%{category}%')
-        
+
         if location:
-            query += ' AND region LIKE ?'
+            query += ' AND region LIKE %s'
             params.append(f'%{location}%')
-        
-        query += ' ORDER BY deadline ASC LIMIT ?'
+
+        query += ' ORDER BY deadline ASC LIMIT %s'
         params.append(limit)
-        
+
         cursor.execute(query, params)
         rows = cursor.fetchall()
+        cursor.close()
         conn.close()
-        
+
         # 转换为字典列表
         results = []
         for row in rows:
@@ -312,9 +346,9 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
                 'source': row['source'],
                 'publish_date': row['publish_date']
             })
-        
+
         return results
-    
+
     except Exception as e:
         logger.error(f"获取项目失败：{e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -324,48 +358,45 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
 def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] = None):
     """
     筛选项目（物联网卡/布控球）
-    
+
     - keywords: 关键词，逗号分隔
     - project_type: 项目类型（物联网卡/布控球）
     """
     try:
-        # 读取示例数据文件
         import json
         data_file = Path(__file__).parent / 'data.json'
-        
+
         if not data_file.exists():
             return []
-        
+
         with open(data_file, 'r', encoding='utf-8') as f:
             all_projects = json.load(f)
-        
+
         # 筛选逻辑
         if not keywords and not project_type:
-            return all_projects[:15]  # 默认返回 15 条
-        
+            return all_projects[:15]
+
         filtered = []
         keyword_list = keywords.split(',') if keywords else []
-        
+
         for project in all_projects:
             match = False
-            
-            # 按类型筛选
+
             if project_type and project.get('type') == project_type:
                 match = True
-            
-            # 按关键词筛选
+
             if keyword_list:
                 project_name = project.get('name', '').lower()
                 for kw in keyword_list:
                     if kw.lower() in project_name:
                         match = True
                         break
-            
+
             if match:
                 filtered.append(project)
-        
-        return filtered[:15]  # 最多返回 15 条
-    
+
+        return filtered[:15]
+
     except Exception as e:
         logger.error(f"筛选项目失败：{e}")
         return []
@@ -375,35 +406,36 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
 def predict_bid_success(request: PredictRequest):
     """
     预测中标概率
-    
+
     返回高/中/低三种预测结果
     """
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, title FROM bid_notices WHERE id = ?', (request.project_id,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute('SELECT id, title FROM bid_notices WHERE id = %s', (request.project_id,))
         row = cursor.fetchone()
+        cursor.close()
         conn.close()
-        
+
         if not row:
             raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
-        
+
         project_name = row['title']
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"查询项目失败：{e}")
         raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
-    
+
     # 随机生成预测结果
     predictions = [
         {"level": "高", "confidence": 0.85, "advice": "建议积极投标，中标概率较大"},
         {"level": "中", "confidence": 0.55, "advice": "可考虑投标，需优化报价策略"},
         {"level": "低", "confidence": 0.25, "advice": "谨慎评估，建议调整投标策略"}
     ]
-    
+
     result = random.choice(predictions)
-    
+
     return PredictResponse(
         project_id=request.project_id,
         project_name=project_name,
@@ -417,20 +449,23 @@ def predict_bid_success(request: PredictRequest):
 def generate_bid_document(request: BidGenerateRequest):
     """
     生成投标文件（Word 格式）
-    
+
     支持物联网卡和布控球两种模板
     返回可下载的 .docx 文件
     """
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, title, budget, deadline, category, region, description FROM bid_notices WHERE id = ?', (request.project_id,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(
+            'SELECT id, title, budget, deadline, category, region, description FROM bid_notices WHERE id = %s',
+            (request.project_id,))
         row = cursor.fetchone()
+        cursor.close()
         conn.close()
-        
+
         if not row:
             raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
-        
+
         project = {
             'id': row['id'],
             'name': row['title'],
@@ -445,23 +480,22 @@ def generate_bid_document(request: BidGenerateRequest):
     except Exception as e:
         logger.error(f"查询项目失败：{e}")
         raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
-    
+
     # 根据项目类型选择模板
     template_type = request.project_type if request.project_type in ['物联网卡', '布控球'] else '物联网卡'
-    
+
     # 加载模板文件
     template = None
     if template_type == '物联网卡':
         template_path = Path(__file__).parent / 'templates' / 'iot-sim-card-template.json'
     else:
         template_path = Path(__file__).parent / 'templates' / 'surveillance-ball-template.json'
-    
+
     if template_path.exists():
         with open(template_path, 'r', encoding='utf-8') as f:
             template = json.load(f)
-    
+
     # 创建 Word 文档
-    # 导入 docx 样式和格式工具
     from docx.shared import Pt, Cm, Inches, RGBColor
     from docx.oxml.ns import qn
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -537,7 +571,6 @@ def generate_bid_document(request: BidGenerateRequest):
         """添加格式化的简单表格"""
         table = doc.add_table(rows=1 + len(rows), cols=len(headers))
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        # 表头
         for i, h in enumerate(headers):
             cell = table.rows[0].cells[i]
             cell.text = ''
@@ -549,7 +582,6 @@ def generate_bid_document(request: BidGenerateRequest):
             shd = etree.SubElement(shading, '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}shd')
             shd.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}fill', 'D9E2F3')
             shd.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', 'clear')
-        # 数据行
         for ri, row_data in enumerate(rows):
             for ci, val in enumerate(row_data):
                 cell = table.rows[ri + 1].cells[ci]
@@ -557,7 +589,6 @@ def generate_bid_document(request: BidGenerateRequest):
                 run = cell.paragraphs[0].add_run(str(val))
                 _set_font(run, size=10)
                 cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # 列宽
         if col_widths:
             for ci, w in enumerate(col_widths):
                 for row in table.rows:
@@ -567,14 +598,12 @@ def generate_bid_document(request: BidGenerateRequest):
     # ========== 设置文档样式 ==========
     doc = Document()
 
-    # 页面设置
     for section in doc.sections:
         section.top_margin = Cm(2.54)
         section.bottom_margin = Cm(2.54)
         section.left_margin = Cm(3.18)
         section.right_margin = Cm(3.18)
 
-    # 正文默认样式
     style = doc.styles['Normal']
     font = style.font
     font.name = '宋体'
@@ -587,8 +616,8 @@ def generate_bid_document(request: BidGenerateRequest):
     now_str = datetime.now().strftime('%Y年%m月%d日')
 
     # ========== 封面 ==========
-    doc.add_paragraph()  # 空行
-    doc.add_paragraph()  # 空行
+    doc.add_paragraph()
+    doc.add_paragraph()
     cover_title = doc.add_paragraph()
     cover_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cover_title.paragraph_format.space_before = Pt(60)
@@ -620,7 +649,6 @@ def generate_bid_document(request: BidGenerateRequest):
     run_d = cover_date.add_run(now_str)
     _set_font(run_d, name='楷体', size=14, bold=False)
 
-    # 分页符
     doc.add_page_break()
 
     # ========== 目录页 ==========
@@ -723,7 +751,6 @@ def generate_bid_document(request: BidGenerateRequest):
     _add_styled_heading(doc, '报价明细表', level=3, font_size=13)
     doc.add_paragraph()
 
-    # 根据模板类型生成报价明细
     if template_type == '物联网卡':
         cf = request.custom_fields or {}
         qty = int(cf.get('delivery_quantity', 1000))
@@ -738,7 +765,7 @@ def generate_bid_document(request: BidGenerateRequest):
             ['6', '运输及杂费', f'{request.bid_amount * 0.05:.2f}', '1', f'{request.bid_amount * 0.05:.2f}', '物流配送'],
             ['合计', '', '', '', f'{request.bid_amount:.2f}', '含税'],
         ]
-    else:  # 布控球
+    else:
         cf = request.custom_fields or {}
         qty = int(cf.get('delivery_quantity', 50))
         unit_price = request.bid_amount / qty if qty > 0 else request.bid_amount
@@ -1024,17 +1051,15 @@ def generate_bid_document(request: BidGenerateRequest):
     _add_kv_para(doc, '项目类型', template_type)
     _add_kv_para(doc, '文档版本', 'V1.0')
     _add_kv_para(doc, '文档说明', '本文档由系统自动生成，仅供参考，正式投标前请由专业人员审核完善。')
-    
-    # 保存到内存
+
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    
-    # URL 编码文件名（避免中文在 HTTP 头部中出错）
-    import urllib.parse
+
+    import urllib.parse as up
     filename = f"{template_type}_bid_{project['id']}_{request.company_name}.docx"
-    encoded_filename = urllib.parse.quote(filename, safe='')
-    
+    encoded_filename = up.quote(filename, safe='')
+
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1047,31 +1072,32 @@ def get_stats():
     """获取数据库统计信息"""
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
         # 总数
-        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
-        total = cursor.fetchone()["count"]
-        
+        cursor.execute('SELECT COUNT(*) FROM bid_notices')
+        total = cursor.fetchone()[0]
+
         # 按来源统计
         cursor.execute('SELECT source_site, COUNT(*) as count FROM bid_notices GROUP BY source_site')
         by_source = {row["source_site"]: row["count"] for row in cursor.fetchall()}
-        
+
         # 按地区统计
-        cursor.execute('SELECT region, COUNT(*) as count FROM bid_notices WHERE region != "" GROUP BY region ORDER BY count DESC LIMIT 10')
+        cursor.execute('SELECT region, COUNT(*) as count FROM bid_notices WHERE region != \'\' GROUP BY region ORDER BY count DESC LIMIT 10')
         by_region = {row["region"]: row["count"] for row in cursor.fetchall()}
-        
+
         # 最新更新时间
         cursor.execute('SELECT MAX(crawl_time) as last_update FROM bid_notices')
         last_update = cursor.fetchone()["last_update"]
-        
+
+        cursor.close()
         conn.close()
-        
+
         return {
             "total": total,
             "by_source": by_source,
             "by_region": by_region,
-            "last_update": last_update,
+            "last_update": str(last_update) if last_update else None,
             "status": "success"
         }
     except Exception as e:
@@ -1084,10 +1110,10 @@ def trigger_crawl():
     """手动触发爬虫任务"""
     try:
         from crawler.gov_crawler import crawl_all
-        
+
         logger.info("手动触发爬虫任务...")
         results = crawl_all()
-        
+
         return {
             "status": "success",
             "message": "爬虫任务执行完成",
@@ -1104,44 +1130,45 @@ def reload_initial_data():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 清空现有数据
         cursor.execute("DELETE FROM bid_notices")
         conn.commit()
         logger.info("已清空现有数据...")
-        
+
         # 加载初始数据
         initial_data_path = Path(__file__).parent / 'initial_data.json'
-        
+
         if not initial_data_path.exists():
             raise HTTPException(status_code=500, detail="初始数据文件不存在")
-        
+
         with open(initial_data_path, 'r', encoding='utf-8') as f:
             initial_data = json.load(f)
-        
+
         for item in initial_data:
             cursor.execute('''
-                INSERT INTO bid_notices 
+                INSERT INTO bid_notices
                 (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
-                item['title'],
-                item['region'],
-                item['budget'],
-                item['deadline'],
-                item['description'],
-                item['source_url'],
-                item['source_site'],
+                item.get('title', ''),
+                item.get('region', ''),
+                item.get('budget'),
+                item.get('deadline', ''),
+                item.get('description', ''),
+                item.get('source_url', ''),
+                item.get('source_site', ''),
                 item.get('source', ''),
-                item['category'],
-                item['publish_date']
+                item.get('category', ''),
+                item.get('publish_date', '')
             ))
-        
+
         conn.commit()
+        cursor.close()
         conn.close()
-        
+
         logger.info(f"已重新加载 {len(initial_data)} 条初始数据")
-        
+
         return {
             "status": "success",
             "message": f"已重新加载 {len(initial_data)} 条初始数据",
@@ -1160,40 +1187,43 @@ def bulk_import_projects(data: List[Dict[str, Any]]):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # 确保表有 project_code 和 status 列
-        cursor.execute("PRAGMA table_info(bid_notices)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if 'project_code' not in columns:
-            cursor.execute("ALTER TABLE bid_notices ADD COLUMN project_code TEXT")
-        if 'status' not in columns:
-            cursor.execute("ALTER TABLE bid_notices ADD COLUMN status TEXT")
-        if 'source' not in columns:
-            cursor.execute("ALTER TABLE bid_notices ADD COLUMN source TEXT")
-        
+
+        # 检查并添加缺失的列
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'bid_notices'
+        """)
+        columns = [row[0] for row in cursor.fetchall()]
+        alter_cols = ['project_code', 'status', 'source']
+        for col in alter_cols:
+            if col not in columns:
+                cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col} TEXT")
+                conn.commit()
+
         imported = 0
         skipped = 0
-        
+
         for item in data:
-            # 按 project_code 或 title+publish_date 去重
             code = item.get('project_code', '')
             if code:
-                cursor.execute("SELECT id FROM bid_notices WHERE project_code = ?", (code,))
+                cursor.execute("SELECT id FROM bid_notices WHERE project_code = %s", (code,))
                 if cursor.fetchone():
                     skipped += 1
                     continue
-            
+
             title = item.get('title', '')
             publish_date = item.get('publish_date', '')
-            cursor.execute("SELECT id FROM bid_notices WHERE title = ? AND publish_date = ?", (title, publish_date))
+            cursor.execute(
+                "SELECT id FROM bid_notices WHERE title = %s AND publish_date = %s",
+                (title, publish_date))
             if cursor.fetchone():
                 skipped += 1
                 continue
-            
+
             cursor.execute('''
                 INSERT INTO bid_notices
                 (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date, project_code, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 title,
                 item.get('region', ''),
@@ -1209,10 +1239,11 @@ def bulk_import_projects(data: List[Dict[str, Any]]):
                 item.get('status', '')
             ))
             imported += 1
-        
+
         conn.commit()
+        cursor.close()
         conn.close()
-        
+
         return {
             "status": "success",
             "imported": imported,
