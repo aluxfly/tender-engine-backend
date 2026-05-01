@@ -665,6 +665,76 @@ def reload_initial_data():
         raise HTTPException(status_code=500, detail=f"重新加载失败：{str(e)}")
 
 
+@app.post("/api/projects/bulk-import")
+def bulk_import_projects(data: List[Dict[str, Any]]):
+    """批量导入项目数据（用于从本地同步数据到线上）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 确保表有 project_code 和 status 列
+        cursor.execute("PRAGMA table_info(bid_notices)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'project_code' not in columns:
+            cursor.execute("ALTER TABLE bid_notices ADD COLUMN project_code TEXT")
+        if 'status' not in columns:
+            cursor.execute("ALTER TABLE bid_notices ADD COLUMN status TEXT")
+        if 'source' not in columns:
+            cursor.execute("ALTER TABLE bid_notices ADD COLUMN source TEXT")
+        
+        imported = 0
+        skipped = 0
+        
+        for item in data:
+            # 按 project_code 或 title+publish_date 去重
+            code = item.get('project_code', '')
+            if code:
+                cursor.execute("SELECT id FROM bid_notices WHERE project_code = ?", (code,))
+                if cursor.fetchone():
+                    skipped += 1
+                    continue
+            
+            title = item.get('title', '')
+            publish_date = item.get('publish_date', '')
+            cursor.execute("SELECT id FROM bid_notices WHERE title = ? AND publish_date = ?", (title, publish_date))
+            if cursor.fetchone():
+                skipped += 1
+                continue
+            
+            cursor.execute('''
+                INSERT INTO bid_notices
+                (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date, project_code, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                title,
+                item.get('region', ''),
+                item.get('budget', 0),
+                item.get('deadline', ''),
+                item.get('description', ''),
+                item.get('source_url', ''),
+                item.get('source_site', ''),
+                item.get('source', ''),
+                item.get('category', ''),
+                publish_date,
+                code,
+                item.get('status', '')
+            ))
+            imported += 1
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "status": "success",
+            "imported": imported,
+            "skipped": skipped,
+            "message": f"导入 {imported} 条，跳过 {skipped} 条（已存在）"
+        }
+    except Exception as e:
+        logger.error(f"批量导入失败：{e}")
+        raise HTTPException(status_code=500, detail=f"导入失败：{str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
