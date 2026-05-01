@@ -272,7 +272,7 @@
             emptyState.style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/api/projects`);
+                const response = await fetch(`${API_BASE}/api/projects?limit=500`);
                 let projects = await response.json();
 
                 // 应用搜索和筛选
