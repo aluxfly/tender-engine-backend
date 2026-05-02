@@ -175,10 +175,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 配置（已存在，覆盖所有新增 API）
+# CORS 配置 — 白名单模式（安全修复：禁止 allow_origins=["*"]）
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://adorable-basbousa-2f63d8.netlify.app").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

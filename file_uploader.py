@@ -18,6 +18,7 @@ API 路由：
 """
 
 import os
+import re
 import time
 import shutil
 import hashlib
@@ -38,6 +39,48 @@ logger = logging.getLogger(__name__)
 UPLOAD_BASE_DIR = Path("/tmp/bid-uploads")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB (Day 5 提升)
 CHUNK_SIZE = 8192  # 8KB chunks for streaming upload
+
+
+# ==================== 路径安全 ====================
+
+def sanitize_path(base_dir: str, user_filename: str) -> str:
+    """确保文件路径不会逃逸 base_dir（防御路径遍历攻击）"""
+    base_dir = os.path.abspath(base_dir)
+    target = os.path.abspath(os.path.join(base_dir, user_filename))
+    if not target.startswith(base_dir + os.sep) and target != base_dir:
+        raise ValueError(f"Invalid file path: {user_filename}")
+    return target
+
+
+def validate_mime(file_path: str) -> tuple[bool, Optional[str]]:
+    """
+    使用 python-magic 验证文件真实 MIME 类型。
+    返回 (是否合法, 检测到的 MIME 类型)。
+    不匹配则拒绝，防止扩展名伪造。
+    """
+    ALLOWED_MIME_TYPES = {
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+        'image/tiff',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/csv', 'text/plain',
+    }
+    try:
+        import magic
+        mime = magic.Magic(mime=True)
+        file_mime = mime.from_file(file_path)
+        if file_mime in ALLOWED_MIME_TYPES:
+            return True, file_mime
+        return False, file_mime
+    except ImportError:
+        logger.warning("[上传安全] python-magic 未安装，跳过 validate_mime")
+        return True, None  # 回退
+    except Exception as e:
+        logger.warning(f"[上传安全] validate_mime 异常: {e}")
+        return True, None  # 回退
 
 # 病毒扫描配置
 CLAMAV_SOCKET = "/var/run/clamav/clamd.ctl"
@@ -206,8 +249,13 @@ router = APIRouter(prefix="/api/bid", tags=["material"])
 # ==================== 工具函数 ====================
 
 def _get_project_dir(project_id: int) -> Path:
-    """获取项目上传目录"""
-    return UPLOAD_BASE_DIR / str(project_id)
+    """获取项目上传目录（sanitize_path 防御路径遍历）"""
+    project_str = str(project_id)
+    # 验证 project_id 只包含数字
+    if not re.match(r'^\d+$', project_str):
+        raise ValueError(f"Invalid project_id: {project_str}")
+    safe_path = sanitize_path(str(UPLOAD_BASE_DIR), project_str)
+    return Path(safe_path)
 
 
 def _validate_file_extension(filename: str) -> tuple[str, str]:
@@ -304,12 +352,15 @@ async def upload_material(
         else:
             detected_mime = expected_mime  # 回退到扩展名推断
 
-        # 保存到临时文件（病毒扫描前用临时名）
+        # 保存到临时文件（病毒扫描前用临时名，sanitize_path 防御路径遍历）
         project_dir = _get_project_dir(project_id)
         project_dir.mkdir(parents=True, exist_ok=True)
         timestamp = int(time.time() * 1000)
-        temp_name = f"tmp_{timestamp}_{Path(filename).stem}{ext}"
-        temp_path = project_dir / temp_name
+        # 提取安全的文件名 stem（移除任何路径分隔符和非法字符）
+        safe_stem = re.sub(r'[^\w\-\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', '_', Path(filename).stem)
+        temp_name = f"tmp_{timestamp}_{safe_stem}{ext}"
+        safe_temp_path = sanitize_path(str(project_dir), temp_name)
+        temp_path = Path(safe_temp_path)
         temp_path.write_bytes(content)
         _update_progress(upload_token, total_size, total_size, "scanning")
 
@@ -326,10 +377,12 @@ async def upload_material(
                 )
             logger.info("[上传安全] 病毒扫描通过")
 
-        # 重命名到最终路径
+        # 重命名到最终路径（sanitize_path 防御路径遍历）
         _update_progress(upload_token, total_size, total_size, "saving")
-        safe_name = f"{timestamp}_{Path(filename).stem}{ext}"
-        final_path = project_dir / safe_name
+        safe_stem = re.sub(r'[^\w\-\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', '_', Path(filename).stem)
+        safe_name = f"{timestamp}_{safe_stem}{ext}"
+        safe_final_path = sanitize_path(str(project_dir), safe_name)
+        final_path = Path(safe_final_path)
         temp_path.rename(final_path)
         logger.info(f"[上传] 文件已保存: {final_path} ({total_size} bytes)")
 
@@ -492,10 +545,15 @@ def delete_material(
             conn.commit()
             cursor.close()
 
-        # 删除物理文件
-        if file_path and Path(file_path).exists():
-            Path(file_path).unlink()
-            logger.info(f"已删除文件: {file_path}")
+        # 删除物理文件（sanitize_path 防御路径遍历）
+        if file_path:
+            try:
+                safe_delete_path = sanitize_path(str(UPLOAD_BASE_DIR), os.path.basename(file_path))
+                if Path(safe_delete_path).exists():
+                    Path(safe_delete_path).unlink()
+                    logger.info(f"已删除文件: {safe_delete_path}")
+            except ValueError as e:
+                logger.warning(f"删除文件路径校验失败: {e}, 原路径: {file_path}")
 
         return {
             "status": "success",

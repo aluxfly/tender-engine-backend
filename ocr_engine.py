@@ -13,6 +13,7 @@ API 路由：
 """
 
 import re
+import os
 import json
 import logging
 from pathlib import Path
@@ -21,6 +22,17 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
+
+# ==================== 路径安全 ====================
+
+def sanitize_path(base_dir: str, user_filename: str) -> str:
+    """确保文件路径不会逃逸 base_dir（防御路径遍历攻击）"""
+    base_dir = os.path.abspath(base_dir)
+    target = os.path.abspath(os.path.join(base_dir, user_filename))
+    if not target.startswith(base_dir + os.sep) and target != base_dir:
+        raise ValueError(f"Invalid file path: {user_filename}")
+    return target
+
 
 # ==================== PaddleOCR 实例 ====================
 
@@ -337,7 +349,14 @@ def ocr_material(
             file_path = material["file_path"]
             cursor.close()
 
-        if not file_path or not Path(file_path).exists():
+        if not file_path:
+            return error_response(404, "文件不存在", "文件路径为空")
+        # sanitize_path 校验：防止数据库中的恶意路径
+        try:
+            sanitize_path("/tmp/bid-uploads", os.path.basename(file_path))
+        except ValueError:
+            return error_response(404, "文件不存在", "文件路径校验失败")
+        if not Path(file_path).exists():
             return error_response(404, "文件不存在", f"文件路径 {file_path} 不存在")
 
         # 确定识别类型
