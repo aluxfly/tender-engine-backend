@@ -25,12 +25,14 @@ REQUIRED_QUALIFICATIONS = [
 ]
 
 # 必填字段（公司资料层面）
+# 注意：法定代表人和联系人（授权代表）由 _check_legal_representative() 单独检查
+# 此处不再重复，避免检查项重复输出
 REQUIRED_COMPANY_FIELDS = [
     {"key": "公司名称", "db_field": "company_name"},
     {"key": "统一社会信用代码", "db_field": "credit_code"},
-    {"key": "法定代表人", "db_field": "legal_representative"},
-    {"key": "联系人", "db_field": "contact_person"},
     {"key": "联系电话", "db_field": "phone"},
+    {"key": "电子邮箱", "db_field": "email"},
+    {"key": "公司地址", "db_field": "address"},
 ]
 
 # 必填字段（标书项目层面）
@@ -101,7 +103,9 @@ def check_disqualification(project_id: int, get_db_connection=None) -> dict:
     items.extend(_check_budget(project_data))
     items.extend(_check_bid_fields(project_data))
     items.extend(_check_validity_period(project_data))
+    # 法定代表人和授权代表由专项函数统一检查（避免与 _check_company_fields 重复）
     items.extend(_check_legal_representative(company_data, project_data))
+    items.extend(_check_bank_info(company_data))
 
     # ---- 4. 汇总 ----
     failed = [i for i in items if i["status"] == "failed"]
@@ -480,7 +484,7 @@ def _check_validity_period(project_data: Optional[dict]) -> list:
 
 
 def _check_legal_representative(company_data: Optional[dict], project_data: Optional[dict]) -> list:
-    """检查法定代表人或授权代表"""
+    """检查法定代表人或授权代表（专项检项，不与 _check_company_fields 重复）"""
     items = []
 
     if company_data is None:
@@ -488,21 +492,22 @@ def _check_legal_representative(company_data: Optional[dict], project_data: Opti
             "field": "法定代表人",
             "status": "failed",
             "severity": "critical",
-            "message": "法定代表人缺失 — 废标项",
-            "suggestion": "请在公司资料中填写法定代表人姓名",
+            "message": "公司资料未关联，法定代表人无法确认 — 废标项",
+            "suggestion": "请先录入公司资料并关联到本项目",
         })
         items.append({
             "field": "授权代表",
             "status": "warning",
             "severity": "high",
-            "message": "授权代表信息缺失",
-            "suggestion": "建议填写授权代表信息（如与法定代表人不同）",
+            "message": "公司资料未关联，授权代表信息无法确认",
+            "suggestion": "建议在公司资料中填写授权代表信息",
         })
         return items
 
     legal_rep = company_data.get("legal_representative")
     contact_person = company_data.get("contact_person")
 
+    # 法定代表人 — 废标项，必须有
     if not legal_rep or (isinstance(legal_rep, str) and not legal_rep.strip()):
         items.append({
             "field": "法定代表人",
@@ -520,13 +525,14 @@ def _check_legal_representative(company_data: Optional[dict], project_data: Opti
             "suggestion": "",
         })
 
+    # 授权代表 — 警告项，建议有
     if not contact_person or (isinstance(contact_person, str) and not contact_person.strip()):
         items.append({
             "field": "授权代表",
             "status": "warning",
             "severity": "high",
-            "message": "授权代表信息缺失",
-            "suggestion": "建议填写授权代表（联系人）信息",
+            "message": "授权代表信息缺失（如与法定代表人为同一人，请填写相同的姓名）",
+            "suggestion": "建议填写授权代表信息",
         })
     else:
         items.append({
@@ -536,5 +542,51 @@ def _check_legal_representative(company_data: Optional[dict], project_data: Opti
             "message": f"授权代表：{contact_person}",
             "suggestion": "",
         })
+
+    return items
+
+
+def _check_bank_info(company_data: Optional[dict]) -> list:
+    """检查银行账户信息（新增检查项）"""
+    items = []
+
+    if company_data is None:
+        items.append({
+            "field": "银行账户信息",
+            "status": "warning",
+            "severity": "medium",
+            "message": "公司资料未关联，银行账户信息无法确认",
+            "suggestion": "建议在公司资料中补充开户行和账号信息",
+        })
+        return items
+
+    bank_info = company_data.get("bank_info", {})
+    if not bank_info or not isinstance(bank_info, dict):
+        items.append({
+            "field": "银行账户信息",
+            "status": "warning",
+            "severity": "medium",
+            "message": "银行账户信息未填写",
+            "suggestion": "建议补充开户行名称和银行账号",
+        })
+    else:
+        bank_name = bank_info.get("bank_name") or bank_info.get("开户行")
+        account = bank_info.get("account") or bank_info.get("账号")
+        if bank_name and account:
+            items.append({
+                "field": "银行账户信息",
+                "status": "passed",
+                "severity": "medium",
+                "message": f"银行账户已填写：{bank_name}",
+                "suggestion": "",
+            })
+        else:
+            items.append({
+                "field": "银行账户信息",
+                "status": "warning",
+                "severity": "medium",
+                "message": "银行账户信息不完整",
+                "suggestion": "请同时填写开户行名称和银行账号",
+            })
 
     return items

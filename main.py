@@ -56,6 +56,33 @@ logger = logging.getLogger(__name__)
 # 全局连接池
 db_pool: Optional[psycopg2.pool.ThreadedConnectionPool] = None
 
+# ==================== API 响应缓存 ====================
+
+_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def cache_get(key: str, ttl: int = 300) -> Optional[Any]:
+    """从缓存获取数据，过期返回 None"""
+    import time
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["ts"]) < ttl:
+        return entry["data"]
+    return None
+
+
+def cache_set(key: str, data: Any):
+    """设置缓存数据"""
+    import time
+    _cache[key] = {"data": data, "ts": time.time()}
+
+
+def cache_invalidate(key: Optional[str] = None):
+    """清除缓存（指定 key 或全部）"""
+    if key:
+        _cache.pop(key, None)
+    else:
+        _cache.clear()
+
 
 def get_database_url():
     """获取数据库连接 URL"""
@@ -103,11 +130,11 @@ async def lifespan(app: FastAPI):
     global db_pool
     logger.info("应用启动中...")
 
-    # 初始化连接池
+    # 初始化连接池（Day 5 优化：min=2, max=10）
     db_url = get_database_url()
     if db_url:
-        min_conn = int(os.environ.get('DB_POOL_MIN', '5'))
-        max_conn = int(os.environ.get('DB_POOL_MAX', '20'))
+        min_conn = int(os.environ.get('DB_POOL_MIN', '2'))
+        max_conn = int(os.environ.get('DB_POOL_MAX', '10'))
         db_pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=min_conn, maxconn=max_conn, dsn=db_url
         )
@@ -1168,9 +1195,16 @@ def generate_bid_document(request: BidGenerateRequest):
 
 @app.get("/api/stats")
 def get_stats():
-    """获取数据库统计信息"""
+    """获取数据库统计信息（5 分钟缓存，Day 5 性能优化）"""
     if not db_pool:
         return {"status": "error", "code": 503, "message": "数据库未连接", "detail": "DATABASE_URL 未设置"}
+
+    # 尝试从缓存获取
+    cached = cache_get("api:stats", ttl=300)
+    if cached is not None:
+        cached["_cached"] = True
+        return cached
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1189,16 +1223,39 @@ def get_stats():
 
             cursor.close()
 
-        return {
+        result = {
             "total": total,
             "by_source": by_source,
             "by_region": by_region,
             "last_update": str(last_update) if last_update else None,
             "status": "success"
         }
+
+        # 写入缓存
+        cache_set("api:stats", result)
+
+        return result
     except Exception as e:
         logger.error(f"获取统计失败：{e}")
         return {"status": "error", "code": 500, "message": "获取统计失败", "detail": str(e)}
+
+
+@app.post("/api/cache/invalidate", dependencies=[Depends(verify_api_key)])
+def invalidate_cache(key: Optional[str] = None):
+    """清除缓存（指定 key 或全部），Day 5 新增"""
+    cache_invalidate(key)
+    return {"status": "success", "message": "缓存已清除", "key": key}
+
+
+@app.get("/api/cache/stats", dependencies=[Depends(verify_api_key)])
+def get_cache_stats():
+    """查看缓存状态，Day 5 新增"""
+    import time
+    entries = {}
+    for k, v in _cache.items():
+        age = round(time.time() - v["ts"], 1)
+        entries[k] = {"age_seconds": age, "ttl_remaining": max(0, round(300 - age, 1))}
+    return {"status": "success", "cached_keys": len(_cache), "entries": entries}
 
 
 @app.post("/api/crawl", dependencies=[Depends(verify_api_key)])
@@ -2307,8 +2364,8 @@ def ai_generate_endpoint(project_id: int, request: AIGenerateRequest = AIGenerat
 
         logger.info(f"AI 生成任务开始: task_id={task_id}, project_id={project_id}, modules={modules}")
 
-        # 执行生成
-        result = generate_all(project_id, parsed_data, get_db_connection)
+        # 执行生成（传入 modules 参数，只生成指定的模块）
+        result = generate_all(project_id, parsed_data, get_db_connection, modules=modules)
 
         # 记录生成完成
         record_generation_complete(task_id, result)

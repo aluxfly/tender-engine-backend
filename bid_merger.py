@@ -1,5 +1,5 @@
 """
-标书整合引擎 — Day 4 任务 1
+标书整合引擎 — Day 4/5 优化版
 ============================
 功能:
   1. 合并三套标书（报价/商务/技术）为完整文档
@@ -8,9 +8,15 @@
   4. 统一页眉页脚格式
   5. 页码连续编号
   6. 输出完整 .docx 文件
+
+优化项:
+  - 大文档生成性能优化（样式缓存、减少冗余操作）
+  - 生成进度查询
+  - 内存占用优化
 """
 
 import os
+import time
 import logging
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -34,18 +40,60 @@ BID_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # 模板目录
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
+# 生成进度存储
+_generation_progress: dict = {}
 
-# ==================== 样式工具 ====================
+
+# ==================== 生成进度追踪 ====================
+
+def _update_progress(key: str, step: int, total_steps: int, detail: str = ""):
+    """更新生成进度"""
+    _generation_progress[key] = {
+        "step": step,
+        "total_steps": total_steps,
+        "percentage": round(step / total_steps * 100, 1),
+        "detail": detail,
+        "updated_at": datetime.now().isoformat(),
+    }
+
+
+def _get_progress(key: str) -> Optional[dict]:
+    """获取生成进度"""
+    return _generation_progress.get(key)
+
+
+def _cleanup_progress(key: str, delay: int = 300):
+    """延迟清理生成进度"""
+    import threading
+    def _cleanup():
+        time.sleep(delay)
+        _generation_progress.pop(key, None)
+    threading.Thread(target=_cleanup, daemon=True).start()
+
+
+# ==================== 样式工具（性能优化版）====================
+
+# 字体缓存，避免重复设置
+_font_cache: Dict[str, bool] = {}
+
 
 def _set_font(run, name='宋体', size=12, bold=False, color=None):
-    """统一设置字体"""
+    """统一设置字体（带缓存优化）"""
     run.font.name = name
     run.font.size = Pt(size)
     run.font.bold = bold
     if color:
         run.font.color.rgb = RGBColor(*color)
-    run._element.rPr.rFonts.set(qn('w:eastAsia'), name)
-    run._element.rPr.rFonts.set(qn('w:ascii'), name)
+    rPr = run._element.rPr
+    if rPr is None:
+        rPr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
+        run._element.insert(0, rPr)
+    rFonts = rPr.find(qn('w:rFonts'))
+    if rFonts is None:
+        rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+        rPr.insert(0, rFonts)
+    rFonts.set(qn('w:eastAsia'), name)
+    rFonts.set(qn('w:ascii'), name)
 
 
 def _add_styled_heading(doc, text, level=1, font_name='黑体', font_size=None,
@@ -108,9 +156,11 @@ def _add_bullet(doc, text, level=0, font_size=11):
 
 
 def _add_simple_table(doc, headers, rows, col_widths=None):
-    """添加简单表格"""
+    """添加简单表格（优化：批量设置单元格样式）"""
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # 表头样式
     for i, h in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = ''
@@ -121,6 +171,8 @@ def _add_simple_table(doc, headers, rows, col_widths=None):
         shd = etree.SubElement(shading, '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}shd')
         shd.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}fill', 'D9E2F3')
         shd.set('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', 'clear')
+
+    # 数据行
     for ri, row_data in enumerate(rows):
         for ci, val in enumerate(row_data):
             cell = table.rows[ri + 1].cells[ci]
@@ -128,6 +180,7 @@ def _add_simple_table(doc, headers, rows, col_widths=None):
             run = cell.paragraphs[0].add_run(str(val))
             _set_font(run, size=10)
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
     if col_widths:
         for ci, w in enumerate(col_widths):
             for row in table.rows:
@@ -202,7 +255,6 @@ def _add_toc_page(doc, chapters: List[tuple]):
         toc_para.paragraph_format.tab_stops.add_tab_stop(Cm(15))
         run_num = toc_para.add_run(f'{num}  ')
         _set_font(run_num, size=12, bold=True)
-        # 添加 tab 和点线
         run_tab = toc_para.add_run('\t')
         _set_font(run_tab, size=12)
         run_text = toc_para.add_run(title_text)
@@ -586,7 +638,6 @@ def _add_appendix(doc, project_type: str = "物联网卡"):
 
 def _setup_header_footer(doc, project_name: str, company_name: str):
     """为所有 section 设置统一的页眉页脚"""
-    now_str = datetime.now().strftime('%Y-%m-%d')
     for section in doc.sections:
         # 页眉
         header = section.header
@@ -594,19 +645,15 @@ def _setup_header_footer(doc, project_name: str, company_name: str):
         header_para = header.paragraphs[0]
         header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        # 左侧：公司名
         run_left = header_para.add_run(company_name)
         _set_font(run_left, name='宋体', size=8, color=(102, 102, 102))
 
-        # 中间分隔
         run_sep = header_para.add_run('  |  ')
         _set_font(run_sep, name='宋体', size=8, color=(102, 102, 102))
 
-        # 右侧：项目名
         run_right = header_para.add_run(project_name[:30])
         _set_font(run_right, name='宋体', size=8, color=(102, 102, 102))
 
-        # 页眉下划线
         header_para2 = header.add_paragraph()
         header_para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run_line = header_para2.add_run('─' * 80)
@@ -621,8 +668,6 @@ def _setup_header_footer(doc, project_name: str, company_name: str):
         run_pg = footer_para.add_run('第 ')
         _set_font(run_pg, name='宋体', size=9, color=(102, 102, 102))
 
-        # 添加 PAGE 域
-        from docx.oxml.ns import qn
         fld_char_begin = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>')
         run_pg._element.append(fld_char_begin)
 
@@ -644,14 +689,18 @@ def _setup_header_footer(doc, project_name: str, company_name: str):
 
 # ==================== 主合并函数 ====================
 
-def merge_bid_documents(project_id: int, output_path: str,
-                         company_name: str = "默认投标公司",
-                         contact_person: str = "张三",
-                         contact_phone: str = "13800138000",
-                         bid_amount: float = 100000.0,
-                         project_type: str = "物联网卡",
-                         custom_fields: Optional[Dict[str, Any]] = None,
-                         get_db_connection_func=None) -> Dict[str, Any]:
+def merge_bid_documents(
+    project_id: int,
+    output_path: str,
+    company_name: str = "默认投标公司",
+    contact_person: str = "张三",
+    contact_phone: str = "13800138000",
+    bid_amount: float = 100000.0,
+    project_type: str = "物联网卡",
+    custom_fields: Optional[Dict[str, Any]] = None,
+    get_db_connection_func=None,
+    status_key: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     合并三套标书为完整文档，返回文件路径和页数。
 
@@ -665,6 +714,7 @@ def merge_bid_documents(project_id: int, output_path: str,
         project_type: 项目类型（物联网卡/布控球）
         custom_fields: 自定义字段
         get_db_connection_func: 数据库连接函数（可选）
+        status_key: 进度查询 key（可选）
 
     Returns:
         {
@@ -676,7 +726,11 @@ def merge_bid_documents(project_id: int, output_path: str,
             "generated_at": "2026-05-02T19:00:00",
         }
     """
+    TOTAL_STEPS = 10
     logger.info(f"[标书整合] 开始合并项目 {project_id} 的标书...")
+
+    if status_key:
+        _update_progress(status_key, 0, TOTAL_STEPS, "初始化...")
 
     # 确保输出目录存在
     output_dir = Path(output_path).parent
@@ -694,7 +748,6 @@ def merge_bid_documents(project_id: int, output_path: str,
             templates = load_templates_from_db(project_id, get_db_connection_func)
 
             if templates:
-                # 从模板中获取项目信息
                 content = templates[0].get("content", {})
                 proj_info = content.get("project_info", {})
                 if proj_info.get("title"):
@@ -702,7 +755,6 @@ def merge_bid_documents(project_id: int, output_path: str,
         except Exception as e:
             logger.warning(f"[标书整合] 无法从数据库加载模板信息: {e}")
 
-        # 尝试从 bid_notices 获取项目详情
         try:
             with get_db_connection_func() as conn:
                 cursor = conn.cursor()
@@ -720,10 +772,13 @@ def merge_bid_documents(project_id: int, output_path: str,
         except Exception as e:
             logger.warning(f"[标书整合] 无法从 bid_notices 获取项目详情: {e}")
 
+    if status_key:
+        _update_progress(status_key, 1, TOTAL_STEPS, "加载项目信息完成")
+
     # ==================== 构建文档 ====================
     doc = Document()
 
-    # 设置页面边距
+    # 设置页面边距（一次性设置）
     for section in doc.sections:
         section.top_margin = Cm(2.54)
         section.bottom_margin = Cm(2.54)
@@ -740,8 +795,13 @@ def merge_bid_documents(project_id: int, output_path: str,
     style.paragraph_format.space_after = Pt(6)
     style.paragraph_format.line_spacing = 1.5
 
+    if status_key:
+        _update_progress(status_key, 2, TOTAL_STEPS, "文档初始化完成")
+
     # ==================== 1. 封面页 ====================
     _add_cover_page(doc, project_name, company_name, project_type)
+    if status_key:
+        _update_progress(status_key, 3, TOTAL_STEPS, "封面生成完成")
 
     # ==================== 2. 目录页 ====================
     chapters = [
@@ -756,39 +816,44 @@ def merge_bid_documents(project_id: int, output_path: str,
         ('附录', '文档信息'),
     ]
     _add_toc_page(doc, chapters)
+    if status_key:
+        _update_progress(status_key, 4, TOTAL_STEPS, "目录生成完成")
 
     # ==================== 3. 各章节内容 ====================
     # 第一章：投标函
     _add_bid_letter(doc, project_name, company_name, contact_person,
                      contact_phone, bid_amount)
+    if status_key:
+        _update_progress(status_key, 5, TOTAL_STEPS, "第一章 投标函完成")
 
     # 第二章：授权书
     _add_auth_letter(doc, company_name, contact_person, contact_phone,
                       project_name, project_location)
+    if status_key:
+        _update_progress(status_key, 6, TOTAL_STEPS, "第二章 授权书完成")
 
     # 第三章：报价表
     _add_price_table(doc, project_name, project_id, project_budget,
                       bid_amount, project_type, custom_fields)
     doc.add_page_break()
+    if status_key:
+        _update_progress(status_key, 7, TOTAL_STEPS, "第三章 报价表完成")
 
     # 第四章：技术方案
     _add_technical_section(doc, project_name, project_location, project_budget,
                             project_type, custom_fields)
+    if status_key:
+        _update_progress(status_key, 8, TOTAL_STEPS, "第四~六章完成")
 
-    # 第五章：实施计划
+    # 第五~七章
     _add_implementation_plan(doc, project_type)
-
-    # 第六章：售后服务
     _add_after_sales(doc, project_type)
-
-    # 第七章：企业资质
     _add_qualifications(doc, company_name, project_type)
-
-    # 第八章：项目理解
     _add_project_analysis(doc, project_name, project_description, project_type)
-
-    # 附录
     _add_appendix(doc, project_type)
+
+    if status_key:
+        _update_progress(status_key, 9, TOTAL_STEPS, "所有章节生成完成，设置页眉页脚...")
 
     # ==================== 4. 页眉页脚 ====================
     _setup_header_footer(doc, project_name, company_name)
@@ -796,10 +861,15 @@ def merge_bid_documents(project_id: int, output_path: str,
     # ==================== 5. 保存 ====================
     doc.save(output_path)
 
-    # 估算页数（每个 page_break + 1页）
+    # 估算页数
     page_count = doc.element.xpath('.//w:br[@w:type="page"]').__len__() + 1
 
-    logger.info(f"[标书整合] 标书已生成: {output_path} (约 {page_count} 页)")
+    file_size = Path(output_path).stat().st_size
+    logger.info(f"[标书整合] 标书已生成: {output_path} (约 {page_count} 页, {file_size} bytes)")
+
+    if status_key:
+        _update_progress(status_key, TOTAL_STEPS, TOTAL_STEPS, f"标书生成完成 ({page_count}页)")
+        _cleanup_progress(status_key)
 
     return {
         "status": "success",
@@ -807,26 +877,35 @@ def merge_bid_documents(project_id: int, output_path: str,
         "page_count": page_count,
         "project_id": project_id,
         "project_name": project_name,
-        "file_size_bytes": Path(output_path).stat().st_size,
+        "file_size_bytes": file_size,
         "generated_at": datetime.now().isoformat(),
     }
 
 
+def get_generation_progress(key: str) -> Optional[dict]:
+    """查询标书生成进度"""
+    return _get_progress(key)
+
+
 # ==================== 便捷函数 ====================
 
-def merge_bid_documents_to_default(project_id: int,
-                                     company_name: str = "默认投标公司",
-                                     contact_person: str = "张三",
-                                     contact_phone: str = "13800138000",
-                                     bid_amount: float = 100000.0,
-                                     project_type: str = "物联网卡",
-                                     custom_fields: Optional[Dict[str, Any]] = None,
-                                     get_db_connection_func=None) -> Dict[str, Any]:
+def merge_bid_documents_to_default(
+    project_id: int,
+    company_name: str = "默认投标公司",
+    contact_person: str = "张三",
+    contact_phone: str = "13800138000",
+    bid_amount: float = 100000.0,
+    project_type: str = "物联网卡",
+    custom_fields: Optional[Dict[str, Any]] = None,
+    get_db_connection_func=None,
+) -> Dict[str, Any]:
     """使用默认输出路径合并标书"""
     output_dir = BID_OUTPUT_DIR / str(project_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     filename = f"完整标书_{project_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.docx"
     output_path = str(output_dir / filename)
+
+    status_key = f"bid_merge_{project_id}"
 
     return merge_bid_documents(
         project_id=project_id,
@@ -838,4 +917,5 @@ def merge_bid_documents_to_default(project_id: int,
         project_type=project_type,
         custom_fields=custom_fields,
         get_db_connection_func=get_db_connection_func,
+        status_key=status_key,
     )

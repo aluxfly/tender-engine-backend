@@ -21,6 +21,7 @@ Day 3: AI 内容生成引擎
 import os
 import re
 import json
+import time
 import logging
 import requests
 from typing import Dict, List, Optional, Any
@@ -43,6 +44,9 @@ LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4")
 LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "4096"))
+LLM_RETRY_COUNT = int(os.environ.get("LLM_RETRY_COUNT", "2"))
+LLM_RETRY_DELAY = int(os.environ.get("LLM_RETRY_DELAY", "3"))
+LLM_FALLBACK_MODEL = os.environ.get("LLM_FALLBACK_MODEL", "")  # 主模型失败时尝试的备选模型
 
 # ==================== 全局 HTTP 连接池 ====================
 
@@ -160,7 +164,7 @@ def find_relevant_paragraphs(category: str, paragraphs: Dict[str, str], max_coun
 def call_llm_api(system_prompt: str, user_prompt: str, model: Optional[str] = None) -> Optional[str]:
     """
     调用大模型 API（OpenAI 兼容接口）。
-    使用全局 HTTP 连接池，超时自动降级。
+    使用全局 HTTP 连接池，带重试机制和备选模型降级。
 
     Returns:
         生成的文本，或 None（API 不可用时）
@@ -173,45 +177,71 @@ def call_llm_api(system_prompt: str, user_prompt: str, model: Optional[str] = No
         "Content-Type": "application/json",
         "Authorization": f"Bearer {LLM_API_KEY}",
     }
-    payload = {
-        "model": model or LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.7,
-        "max_tokens": LLM_MAX_TOKENS,
-    }
 
-    try:
-        session = get_http_session()
-        resp = session.post(LLM_API_URL, json=payload, headers=headers, timeout=LLM_TIMEOUT)
-        resp.raise_for_status()
-        data = resp.json()
+    # 构建模型列表：主模型 → 备选模型
+    models_to_try = [model or LLM_MODEL]
+    if LLM_FALLBACK_MODEL and LLM_FALLBACK_MODEL not in models_to_try:
+        models_to_try.append(LLM_FALLBACK_MODEL)
 
-        # 兼容多种返回格式
-        choices = data.get("choices", [])
-        if choices:
-            content = choices[0].get("message", {}).get("content", "")
-            if content:
-                logger.info(f"LLM API 调用成功，返回 {len(content)} 字符")
-                return content
+    for attempt_model in models_to_try:
+        payload = {
+            "model": attempt_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.7,
+            "max_tokens": LLM_MAX_TOKENS,
+        }
 
-        logger.warning(f"LLM API 返回为空: {data}")
-        return None
+        for attempt in range(1 + LLM_RETRY_COUNT):
+            try:
+                session = get_http_session()
+                resp = session.post(LLM_API_URL, json=payload, headers=headers, timeout=LLM_TIMEOUT)
+                resp.raise_for_status()
+                data = resp.json()
 
-    except requests.exceptions.Timeout:
-        logger.warning(f"LLM API 超时（>{LLM_TIMEOUT}s），使用素材库兜底")
-        return None
-    except requests.exceptions.ConnectionError as e:
-        logger.warning(f"LLM API 连接失败: {e}，使用素材库兜底")
-        return None
-    except requests.exceptions.HTTPError as e:
-        logger.warning(f"LLM API 错误 ({e.response.status_code}): {e.response.text[:200]}，使用素材库兜底")
-        return None
-    except Exception as e:
-        logger.warning(f"LLM API 异常: {e}，使用素材库兜底")
-        return None
+                # 兼容多种返回格式
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "")
+                    if content:
+                        model_label = attempt_model
+                        if attempt_model != (model or LLM_MODEL):
+                            model_label += " (备选)"
+                        logger.info(f"LLM API 调用成功 [{model_label}]，返回 {len(content)} 字符")
+                        return content
+
+                logger.warning(f"LLM API 返回为空: {data}")
+
+            except requests.exceptions.Timeout:
+                logger.warning(f"LLM API 超时（>{LLM_TIMEOUT}s），模型={attempt_model}，第{attempt+1}次尝试")
+            except requests.exceptions.ConnectionError as e:
+                logger.warning(f"LLM API 连接失败: {e}，模型={attempt_model}")
+                # 连接错误不重试，直接跳出
+                break
+            except requests.exceptions.HTTPError as e:
+                status_code = e.response.status_code
+                error_text = e.response.text[:200]
+                logger.warning(f"LLM API HTTP {status_code}: {error_text}，模型={attempt_model}")
+                # 4xx 错误（除 429）不重试
+                if 400 <= status_code < 500 and status_code != 429:
+                    break
+            except Exception as e:
+                logger.warning(f"LLM API 异常: {e}，模型={attempt_model}")
+
+            # 重试延迟（指数退避）
+            if attempt < LLM_RETRY_COUNT:
+                delay = LLM_RETRY_DELAY * (2 ** attempt)
+                logger.info(f"等待 {delay}s 后重试...")
+                time.sleep(delay)
+
+        # 主模型失败，如果有备选模型则继续尝试
+        if attempt_model == (model or LLM_MODEL) and LLM_FALLBACK_MODEL:
+            logger.info(f"主模型 {model or LLM_MODEL} 失败，尝试备选模型 {LLM_FALLBACK_MODEL}")
+
+    logger.warning("LLM API 所有尝试均失败，使用素材库兜底")
+    return None
 
 
 # ==================== 兜底模板生成 ====================
@@ -770,14 +800,16 @@ def generate_service_commitment(reqs: dict) -> Dict[str, Any]:
 
 # ==================== 全量批量生成 ====================
 
-def generate_all(project_id: int, parsed_data: dict, get_db_connection) -> Dict[str, Any]:
+def generate_all(project_id: int, parsed_data: dict, get_db_connection,
+                 modules: Optional[List[str]] = None) -> Dict[str, Any]:
     """
-    为指定项目触发全量 AI 生成（5 个模块）。
+    为指定项目触发 AI 生成（支持指定模块或全量生成）。
 
     Args:
         project_id: 项目 ID
         parsed_data: 项目解析数据（来自 bid_projects.parsed_data）
         get_db_connection: 数据库连接上下文管理器
+        modules: 指定要生成的模块列表，None 则全量生成
 
     Returns:
         生成结果汇总
@@ -785,64 +817,61 @@ def generate_all(project_id: int, parsed_data: dict, get_db_connection) -> Dict[
     key_info = parsed_data.get("key_info", {})
     project_name = key_info.get("project_name", "") or parsed_data.get("title", "")
 
+    all_module_names = [
+        "technical_solution",
+        "project_understanding",
+        "work_plan",
+        "performance_guarantee",
+        "service_commitment",
+    ]
+    # 如果没有指定模块，则生成全部
+    target_modules = modules if modules else all_module_names
+    # 过滤无效模块
+    target_modules = [m for m in target_modules if m in all_module_names]
+
     results = {}
     start_time = datetime.now()
 
-    # 1. 技术方案
-    try:
-        tech_reqs = {
+    module_generators = {
+        "technical_solution": lambda: generate_technical_solution({
             "project_name": project_name,
             "technical_requirements": key_info.get("technical_requirements", ""),
             "category": key_info.get("category", ""),
             "budget": key_info.get("budget"),
-        }
-        results["technical_solution"] = generate_technical_solution(tech_reqs)
-    except Exception as e:
-        results["technical_solution"] = {"status": "error", "error": str(e)}
-
-    # 2. 项目理解
-    try:
-        proj_desc = {
+        }),
+        "project_understanding": lambda: generate_project_understanding({
             "project_name": project_name,
             "description": key_info.get("description", ""),
             "category": key_info.get("category", ""),
             "region": key_info.get("region", ""),
-        }
-        results["project_understanding"] = generate_project_understanding(proj_desc)
-    except Exception as e:
-        results["project_understanding"] = {"status": "error", "error": str(e)}
-
-    # 3. 工作规划
-    try:
-        duration = key_info.get("duration", "12周")
-        milestones = key_info.get("milestones", [])
-        results["work_plan"] = generate_work_plan(milestones, duration)
-    except Exception as e:
-        results["work_plan"] = {"status": "error", "error": str(e)}
-
-    # 4. 履约保障
-    try:
-        perf_reqs = {
+        }),
+        "work_plan": lambda: generate_work_plan(
+            key_info.get("milestones", []),
+            key_info.get("duration", "12周"),
+        ),
+        "performance_guarantee": lambda: generate_performance_guarantee({
             "project_name": project_name,
             "quality_requirements": key_info.get("quality_requirements", ""),
             "safety_requirements": key_info.get("safety_requirements", ""),
             "schedule_requirements": key_info.get("schedule_requirements", ""),
-        }
-        results["performance_guarantee"] = generate_performance_guarantee(perf_reqs)
-    except Exception as e:
-        results["performance_guarantee"] = {"status": "error", "error": str(e)}
-
-    # 5. 服务承诺
-    try:
-        svc_reqs = {
+        }),
+        "service_commitment": lambda: generate_service_commitment({
             "project_name": project_name,
             "service_requirements": key_info.get("service_requirements", ""),
             "warranty_period": key_info.get("warranty_period", ""),
             "response_time": key_info.get("response_time", ""),
-        }
-        results["service_commitment"] = generate_service_commitment(svc_reqs)
-    except Exception as e:
-        results["service_commitment"] = {"status": "error", "error": str(e)}
+        }),
+    }
+
+    for mod_name in target_modules:
+        try:
+            generator = module_generators.get(mod_name)
+            if generator:
+                results[mod_name] = generator()
+            else:
+                results[mod_name] = {"status": "error", "error": f"未知的生成模块: {mod_name}"}
+        except Exception as e:
+            results[mod_name] = {"status": "error", "error": str(e)}
 
     elapsed = (datetime.now() - start_time).total_seconds()
 

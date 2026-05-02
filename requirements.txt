@@ -8,18 +8,24 @@ playwright>=1.40.0
 apscheduler>=3.10.0
 psycopg2-binary>=2.9.9
 lxml>=5.0.0
+
 # Day 1: 文档解析引擎
 pdfplumber>=0.11.0
+
 # OCR 引擎（按需安装，体积较大 ~500MB）
 paddlepaddle>=3.3.0
 paddleocr>=3.5.0
-# OCR 备选方案（当 paddleocr 不可用时）
-# pytesseract>=0.3.10
-# Pillow>=9.1.0  # pdfplumber 已引入
 
-# Day 4: PDF 导出（按需安装，至少一种）
-# 方案 1（推荐，Docker 中安装 libreoffice）：libreoffice
+# Day 3: 文件上传安全
+python-magic>=0.4.27    # MIME 类型检测（需要系统包 libmagic1）
+
+# Day 4/5: PDF 导出（按需安装，至少一种）
+# 方案 1（推荐，Docker/System 中安装 libreoffice）：
+#   apt install libreoffice
 # 方案 2（备选）：
 # docx2pdf>=0.1.8
 # weasyprint>=60.0
 # python-mammoth>=0.6.0
+
+# Day 5: 病毒扫描（可选）
+# pyclamd>=0.4.0  # 需要系统安装 ClamAV: apt install clamav clamav-daemon

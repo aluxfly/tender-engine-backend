@@ -30,24 +30,32 @@ SCORING_CRITERIA = [
                 "name": "技术架构合理性",
                 "max_score": 10,
                 "check_keys": ["技术方案", "技术路线", "系统架构", "架构设计"],
+                "related_keys": ["架构", "设计", "系统", "技术", "拓扑", "网络", "部署"],
+                "content_sections": ["technical_solution", "技术方案", "技术路线", "系统架构"],
                 "description": "评估技术方案的整体架构设计",
             },
             {
                 "name": "技术先进性",
                 "max_score": 8,
                 "check_keys": ["技术创新", "技术先进", "前沿技术", "智能化"],
+                "related_keys": ["创新", "先进", "智能", "自动化", "云", "AI", "大数据", "物联网"],
+                "content_sections": ["technical_solution", "技术创新", "先进性"],
                 "description": "方案采用的技术是否先进",
             },
             {
                 "name": "技术可行性",
                 "max_score": 7,
                 "check_keys": ["可行性", "技术实现", "实施方案", "落地"],
+                "related_keys": ["实施", "实现", "方案", "落地", "部署", "集成", "测试"],
+                "content_sections": ["technical_solution", "实施方案", "技术可行性"],
                 "description": "方案是否具备可落地实施的条件",
             },
             {
                 "name": "需求响应度",
                 "max_score": 5,
                 "check_keys": ["需求理解", "需求响应", "需求分析", "功能覆盖"],
+                "related_keys": ["需求", "功能", "响应", "满足", "符合", "要求"],
+                "content_sections": ["project_understanding", "需求理解", "需求分析"],
                 "description": "对招标需求的响应和覆盖程度",
             },
         ],
@@ -60,18 +68,24 @@ SCORING_CRITERIA = [
                 "name": "实施计划",
                 "max_score": 5,
                 "check_keys": ["实施计划", "进度安排", "工期", "里程碑"],
+                "related_keys": ["计划", "进度", "工期", "阶段", "时间", "节点"],
+                "content_sections": ["work_plan", "实施计划", "进度计划"],
                 "description": "项目实施计划的合理性和完整性",
             },
             {
                 "name": "团队配置",
                 "max_score": 5,
                 "check_keys": ["团队", "人员配置", "项目团队", "组织"],
+                "related_keys": ["人员", "团队", "配置", "组织", "角色", "工程师"],
+                "content_sections": ["work_plan", "团队配置", "人员"],
                 "description": "项目团队的配置是否合理",
             },
             {
                 "name": "风险控制",
                 "max_score": 5,
                 "check_keys": ["风险", "应急预案", "风险管控", "保障措施"],
+                "related_keys": ["风险", "应急", "保障", "预案", "安全", "措施"],
+                "content_sections": ["work_plan", "performance_guarantee", "风险控制"],
                 "description": "风险识别和应对措施",
             },
         ],
@@ -84,18 +98,24 @@ SCORING_CRITERIA = [
                 "name": "类似项目业绩",
                 "max_score": 8,
                 "check_keys": ["业绩", "类似项目", "案例", "项目经验"],
+                "related_keys": ["项目", "业绩", "案例", "经验", "完成", "合作"],
+                "content_sections": ["业绩", "项目经验", "案例"],
                 "description": "过往类似项目的业绩情况",
             },
             {
                 "name": "行业经验",
                 "max_score": 4,
                 "check_keys": ["行业经验", "行业背景", "深耕", "专注"],
+                "related_keys": ["行业", "领域", "经验", "背景", "深耕", "专注", "多年"],
+                "content_sections": ["project_understanding", "行业经验"],
                 "description": "在招标方所在行业的经验",
             },
             {
                 "name": "客户评价",
                 "max_score": 3,
                 "check_keys": ["客户评价", "用户反馈", "满意度", "口碑"],
+                "related_keys": ["客户", "用户", "满意", "评价", "反馈", "认可"],
+                "content_sections": ["客户评价", "用户反馈"],
                 "description": "过往客户的评价和反馈",
             },
         ],
@@ -108,18 +128,24 @@ SCORING_CRITERIA = [
                 "name": "企业资质",
                 "max_score": 4,
                 "check_keys": ["资质", "资质证书", "企业", "营业执照"],
+                "related_keys": ["资质", "证书", "执照", "等级", "许可"],
+                "content_sections": ["企业资质", "资质"],
                 "description": "企业的资质等级和完整性",
             },
             {
                 "name": "核心人员资质",
                 "max_score": 3,
                 "check_keys": ["人员资质", "证书", "认证", "资格"],
+                "related_keys": ["人员", "资质", "证书", "资格", "认证", "专业"],
+                "content_sections": ["人员资质", "核心人员"],
                 "description": "核心团队成员的专业资质",
             },
             {
                 "name": "管理体系认证",
                 "max_score": 3,
                 "check_keys": ["ISO", "管理体系", "认证", "质量"],
+                "related_keys": ["ISO", "管理", "体系", "认证", "标准", "规范"],
+                "content_sections": ["管理体系", "认证"],
                 "description": "ISO等管理体系认证情况",
             },
         ],
@@ -132,18 +158,24 @@ SCORING_CRITERIA = [
                 "name": "质量保障体系",
                 "max_score": 4,
                 "check_keys": ["质量保证", "质量保障", "质量控制", "质量管理"],
+                "related_keys": ["质量", "保障", "控制", "管理", "检验", "标准"],
+                "content_sections": ["performance_guarantee", "质量保证", "质量保障"],
                 "description": "质量保障体系的完整性",
             },
             {
                 "name": "售后服务",
                 "max_score": 3,
                 "check_keys": ["售后", "服务承诺", "维保", "运维"],
+                "related_keys": ["售后", "服务", "维保", "运维", "支持", "响应"],
+                "content_sections": ["service_commitment", "售后服务", "服务承诺"],
                 "description": "售后服务方案的完善程度",
             },
             {
                 "name": "培训方案",
                 "max_score": 3,
                 "check_keys": ["培训", "培训计划", "知识转移"],
+                "related_keys": ["培训", "计划", "知识", "转移", "学习", "教学"],
+                "content_sections": ["service_commitment", "培训方案"],
                 "description": "用户培训方案的可行性",
             },
         ],
@@ -156,18 +188,24 @@ SCORING_CRITERIA = [
                 "name": "报价合理性",
                 "max_score": 10,
                 "check_keys": ["报价", "投标报价", "价格"],
+                "related_keys": ["报价", "价格", "金额", "费用", "预算", "成本"],
+                "content_sections": ["报价", "价格"],
                 "description": "报价是否在合理范围内",
             },
             {
                 "name": "成本透明度",
                 "max_score": 5,
                 "check_keys": ["明细", "成本", "报价明细", "费用构成"],
+                "related_keys": ["明细", "成本", "费用", "构成", "透明", "分解"],
+                "content_sections": ["成本明细", "费用"],
                 "description": "报价明细的透明度和合理性",
             },
             {
                 "name": "性价比",
                 "max_score": 5,
                 "check_keys": ["性价比", "价值", "优惠", "综合性价比"],
+                "related_keys": ["性价比", "价值", "优势", "合理", "经济", "优惠"],
+                "content_sections": ["性价比", "价值"],
                 "description": "整体方案的性价比",
             },
         ],
@@ -282,7 +320,14 @@ def generate_scoring_report(project_id: int, get_db_connection=None) -> dict:
 
 def _evaluate_sub_item(sub_item: dict, parsed: dict, company_data: Optional[dict],
                        project_data: dict) -> tuple:
-    """评估单个子评分项，返回 (score, detail)"""
+    """评估单个子评分项，返回 (score, detail)
+
+    评分策略（多层匹配）：
+    1. 精确关键词匹配 — 在解析数据中搜索 check_keys
+    2. 相关关键词匹配 — 在解析数据中搜索 related_keys（权重降低）
+    3. 生成内容识别 — 如果 parsed_data 中有对应 AI 生成内容，给基础分
+    4. 公司资料加分 — 从 company_data 中提取额外证据
+    """
     score = 0.0
     evidence = []
     missing = []
@@ -290,35 +335,65 @@ def _evaluate_sub_item(sub_item: dict, parsed: dict, company_data: Optional[dict
     # 搜索匹配的关键词
     flat_text = _flatten_parsed(parsed)
 
+    # ---- 层1: 精确关键词匹配 ----
     matched_keys = []
     for key in sub_item["check_keys"]:
         if key in flat_text:
             matched_keys.append(key)
 
-    # 检查公司资料中的特殊项
+    # ---- 层2: 相关关键词匹配（降权） ----
+    related_keys = sub_item.get("related_keys", [])
+    matched_related = []
+    for key in related_keys:
+        if key in flat_text and key not in matched_keys:
+            matched_related.append(key)
+
+    # ---- 层3: AI 生成内容识别 ----
+    has_generated_content = _check_generated_content(parsed, sub_item)
+
+    # ---- 层4: 公司资料加分 ----
     if company_data:
         extra_text = _flatten_company(company_data)
         for key in sub_item["check_keys"]:
             if key in extra_text and key not in matched_keys:
                 matched_keys.append(key)
+        for key in related_keys:
+            if key in extra_text and key not in matched_keys and key not in matched_related:
+                matched_related.append(key)
 
-    coverage_ratio = len(matched_keys) / len(sub_item["check_keys"]) if sub_item["check_keys"] else 0
+    # ---- 综合评分 ----
+    total_keys = len(sub_item["check_keys"])
+    exact_ratio = len(matched_keys) / total_keys if total_keys > 0 else 0
+    related_ratio = len(matched_related) / len(related_keys) if related_keys else 0
+
+    # 综合覆盖率 = 精确匹配（100%权重）+ 相关匹配（40%权重）
+    coverage_ratio = exact_ratio * 1.0 + related_ratio * 0.4
+    # 归一化到 0-1
+    max_possible = 1.0 + 0.4  # 精确100% + 相关100%
+    normalized_ratio = min(coverage_ratio / max_possible, 1.0) if max_possible > 0 else 0
+
+    # 有 AI 生成内容但关键词未匹配时，给基础分 25%
+    if has_generated_content and normalized_ratio < 0.25:
+        normalized_ratio = max(normalized_ratio, 0.25)
+        evidence.append(f"已生成{sub_item['name']}相关内容（关键词待补充）")
 
     # 根据覆盖率估算得分
-    if coverage_ratio >= 0.75:
+    if normalized_ratio >= 0.75:
         score = sub_item["max_score"] * 0.85
-        evidence.append(f"找到 {len(matched_keys)}/{len(sub_item['check_keys'])} 个关键内容")
-    elif coverage_ratio >= 0.5:
+        evidence.append(f"找到 {len(matched_keys)}/{total_keys} 个关键内容")
+        if matched_related:
+            evidence.append(f"关联内容 {len(matched_related)} 项")
+    elif normalized_ratio >= 0.5:
         score = sub_item["max_score"] * 0.6
-        evidence.append(f"部分覆盖 ({len(matched_keys)}/{len(sub_item['check_keys'])} 个关键内容)")
+        evidence.append(f"部分覆盖 ({len(matched_keys)}/{total_keys} 个关键内容)")
         missing = [k for k in sub_item["check_keys"] if k not in matched_keys]
-    elif coverage_ratio >= 0.25:
-        score = sub_item["max_score"] * 0.3
-        evidence.append(f"覆盖不足 ({len(matched_keys)}/{len(sub_item['check_keys'])} 个关键内容)")
-        missing = [k for k in sub_item["check_keys"] if k not in matched_keys]
+    elif normalized_ratio >= 0.25:
+        score = sub_item["max_score"] * 0.4
+        evidence.append(f"基础覆盖 ({len(matched_keys)}/{total_keys} 个关键内容)")
+        missing = [k for k in sub_item["check_keys"] if k not in matched_keys][:2]
     else:
-        score = sub_item["max_score"] * 0.1
-        evidence.append("内容严重不足")
+        score = sub_item["max_score"] * 0.15
+        evidence.append(f"覆盖不足 ({len(matched_keys)}/{total_keys} 个关键内容)")
         missing = sub_item["check_keys"]
 
     # 特殊检查：价格相关
@@ -334,6 +409,33 @@ def _evaluate_sub_item(sub_item: dict, parsed: dict, company_data: Optional[dict
         "evidence": "；".join(evidence) if evidence else "未找到相关内容",
         "missing": missing,
     }
+
+
+def _check_generated_content(parsed: dict, sub_item: dict) -> bool:
+    """检查是否有 AI 生成的相关内容"""
+    content_sections = sub_item.get("content_sections", [])
+    if not content_sections or not parsed:
+        return False
+
+    # 检查 parsed_data 中是否有对应键的内容
+    for section in content_sections:
+        if section in parsed:
+            val = parsed[section]
+            if isinstance(val, str) and len(val) > 100:
+                return True
+            if isinstance(val, dict) and len(str(val)) > 100:
+                return True
+
+    # 检查 key_info 中是否有相关内容
+    key_info = parsed.get("key_info", {})
+    if isinstance(key_info, dict):
+        for section in content_sections:
+            if section in key_info:
+                val = key_info[section]
+                if isinstance(val, str) and len(val) > 50:
+                    return True
+
+    return False
 
 
 def _evaluate_price(parsed: dict, company_data: Optional[dict],
