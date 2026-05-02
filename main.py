@@ -381,7 +381,7 @@ def root():
 
     return {
         "message": "投标公司赚钱引擎 API - 真实数据版本",
-        "version": "1.3.0",
+        "version": "1.5.0",
         "database": {
             "total_notices": db_stats["total"],
             "status": "active" if db_stats["total"] > 0 else "empty"
