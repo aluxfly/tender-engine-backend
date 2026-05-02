@@ -1153,7 +1153,7 @@ def get_stats():
         return {"status": "error", "code": 500, "message": "获取统计失败", "detail": str(e)}
 
 
-@app.post("/api/crawl")
+@app.post("/api/crawl", dependencies=[Depends(verify_api_key)])
 def trigger_crawl():
     """手动触发爬虫任务"""
     try:
@@ -1172,7 +1172,7 @@ def trigger_crawl():
         raise HTTPException(status_code=500, detail=f"爬虫执行失败：{str(e)}")
 
 
-@app.post("/api/reload-data")
+@app.post("/api/reload-data", dependencies=[Depends(verify_api_key)])
 def reload_initial_data():
     """手动重新加载初始数据"""
     if not db_pool:
@@ -1677,6 +1677,355 @@ def get_bid_project(project_id: int):
     except Exception as e:
         logger.error(f"查询标书项目失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =====================================================================
+# 标书 AI 生成系统 — Day 2 新增 API
+# =====================================================================
+
+from fastapi import UploadFile, File
+import shutil
+import tempfile
+
+
+# ==================== 任务 1: 文档解析 API ====================
+
+@app.post("/api/bid/upload", response_model=dict, dependencies=[Depends(verify_api_key)])
+async def upload_bid_document(file: UploadFile = File(...)):
+    """
+    上传招标文件（docx/pdf）并解析。
+
+    - 接收文件并保存到 /tmp/
+    - 调用 doc_parser.parse_file() 解析
+    - 提取关键信息
+    - 在 bid_projects 表中创建记录
+    - 返回解析结果
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    # 验证文件类型
+    allowed_ext = [".docx", ".pdf"]
+    filename = file.filename or ""
+    suffix = Path(filename).suffix.lower()
+    if suffix not in allowed_ext:
+        return error_response(400, "不支持的文件格式", f"仅支持 {', '.join(allowed_ext)}")
+
+    # 保存到临时文件
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, prefix="bid_upload_", delete=False, dir="/tmp/") as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        logger.info(f"文件已保存到: {tmp_path} ({len(content)} bytes)")
+
+        # 解析文件
+        from doc_parser import parse_and_extract
+        result = parse_and_extract(tmp_path)
+
+        # 在 bid_projects 表中创建记录
+        parsed_data = result.get("parsed", {})
+        key_info = result.get("key_info", {})
+
+        # 合并 parsed 和 key_info 存储
+        full_parsed = {**parsed_data, "key_info": key_info}
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                """
+                INSERT INTO bid_projects
+                    (title, source_file_name, file_path, parsed_data, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, title, source_file_name, file_path, parsed_data,
+                          status, created_at, updated_at
+                """,
+                (
+                    key_info.get("project_name") or filename,
+                    filename,
+                    tmp_path,
+                    json.dumps(full_parsed, ensure_ascii=False),
+                    "draft",
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        return {
+            "status": "success",
+            "message": "文件解析成功",
+            "file_path": tmp_path,
+            "project_id": row["id"],
+            "key_info": key_info,
+            "parsed_summary": {
+                "file_type": parsed_data.get("file_type"),
+                "page_count": parsed_data.get("page_count"),
+                "structure_items": len(parsed_data.get("structure", [])),
+                "tables_count": len(parsed_data.get("tables", [])),
+            },
+            "data": dict(row),
+        }
+
+    except Exception as e:
+        logger.error(f"文件上传解析失败: {e}")
+        return error_response(500, "文件解析失败", str(e))
+
+
+@app.get("/api/bid/analysis/{project_id}", dependencies=[Depends(verify_api_key)])
+def get_bid_analysis(project_id: int):
+    """
+    获取招标文件解析结果。
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                """
+                SELECT id, title, source_file_name, file_path, parsed_data,
+                       status, created_at, updated_at
+                FROM bid_projects
+                WHERE id = %s
+                """,
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        parsed_data = row["parsed_data"]
+        if isinstance(parsed_data, str):
+            parsed_data = json.loads(parsed_data)
+
+        key_info = parsed_data.get("key_info", {})
+
+        return {
+            "status": "success",
+            "data": {
+                "project_id": row["id"],
+                "title": row["title"],
+                "source_file_name": row["source_file_name"],
+                "file_path": row["file_path"],
+                "status": row["status"],
+                "created_at": str(row["created_at"]),
+                "key_info": key_info,
+                "full_parsed": parsed_data,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取解析结果失败: {e}")
+        return error_response(500, "获取解析结果失败", str(e))
+
+
+# ==================== 任务 2: 动态模板引擎 API ====================
+
+@app.post("/api/bid/generate-templates/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def generate_bid_templates(project_id: int):
+    """
+    为指定项目生成三套模板（报价/商务/技术）。
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 获取项目信息
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                "SELECT id, title, parsed_data FROM bid_projects WHERE id = %s",
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        parsed_data = row["parsed_data"]
+        if isinstance(parsed_data, str):
+            parsed_data = json.loads(parsed_data)
+        elif parsed_data is None:
+            parsed_data = {}
+
+        project_info = {
+            "id": row["id"],
+            "title": row["title"],
+            "project_name": parsed_data.get("key_info", {}).get("project_name", row["title"]),
+            "bid_number": parsed_data.get("key_info", {}).get("bid_number"),
+        }
+
+        # 推断项目类型
+        from bid_template_engine import infer_project_type, generate_template_content, save_templates_to_db
+
+        project_type = infer_project_type(parsed_data)
+        logger.info(f"推断项目类型: {project_type}")
+
+        # 生成三套模板
+        templates = []
+        for t_type in ["报价", "商务", "技术"]:
+            tpl_content = generate_template_content(t_type, project_info)
+            templates.append(tpl_content)
+
+        # 保存到数据库
+        saved = save_templates_to_db(project_id, templates, get_db_connection)
+
+        return {
+            "status": "success",
+            "message": f"已生成 {len(saved)} 套模板",
+            "project_type": project_type,
+            "templates": saved,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成模板失败: {e}")
+        return error_response(500, "生成模板失败", str(e))
+
+
+@app.get("/api/bid/templates/{project_id}", dependencies=[Depends(verify_api_key)])
+def get_bid_templates(project_id: int):
+    """
+    获取项目已生成的模板列表。
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        from bid_template_engine import load_templates_from_db
+
+        templates = load_templates_from_db(project_id, get_db_connection)
+
+        # 简化返回（去掉完整的 placeholders 列表）
+        simplified = []
+        for tpl in templates:
+            content = tpl.get("content", {})
+            simplified.append({
+                "id": tpl["id"],
+                "template_type": tpl["template_type"],
+                "template_name": tpl["template_name"],
+                "file_path": content.get("file_path"),
+                "placeholder_count": len(content.get("placeholders", [])),
+                "generated_at": content.get("generated_at"),
+                "created_at": tpl["created_at"],
+            })
+
+        return {
+            "status": "success",
+            "count": len(simplified),
+            "data": simplified,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取模板失败: {e}")
+        return error_response(500, "获取模板失败", str(e))
+
+
+# ==================== 任务 3: 资料需求分析 API ====================
+
+@app.get("/api/bid/requirements/{project_id}", dependencies=[Depends(verify_api_key)])
+def get_bid_requirements(project_id: int):
+    """
+    获取项目的资料需求清单。
+
+    - 扫描模板中的占位符
+    - 按类别分组
+    - 标记已填充/待补充
+    - 生成结构化需求清单
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 获取项目解析数据
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                "SELECT id, parsed_data FROM bid_projects WHERE id = %s",
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        parsed_data = row["parsed_data"]
+        if isinstance(parsed_data, str):
+            parsed_data = json.loads(parsed_data)
+        elif parsed_data is None:
+            parsed_data = {}
+
+        from requirements_analyzer import analyze_requirements
+
+        result = analyze_requirements(project_id, parsed_data, get_db_connection)
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取需求清单失败: {e}")
+        return error_response(500, "获取需求清单失败", str(e))
+
+
+# ==================== 任务 4: 数据匹配/自动填充 API ====================
+
+from pydantic import BaseModel
+
+class AutoFillRequest(BaseModel):
+    bid_amount: Optional[float] = None
+
+
+@app.post("/api/bid/auto-fill/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def auto_fill_bid(project_id: int, request: AutoFillRequest = AutoFillRequest()):
+    """
+    自动填充标书模板。
+
+    - 查询公司资料
+    - 查询历史业绩
+    - 自动匹配占位符
+    - 生成填充后的模板文件
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        from data_matcher import auto_fill_project
+
+        result = auto_fill_project(
+            project_id=project_id,
+            get_db_connection_func=get_db_connection,
+            bid_amount=request.bid_amount,
+        )
+
+        if "error" in result:
+            return error_response(404, result["error"], "")
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"自动填充失败: {e}")
+        return error_response(500, "自动填充失败", str(e))
 
 
 if __name__ == "__main__":
