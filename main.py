@@ -18,6 +18,11 @@ Day 3 新功能:
   11. 文件上传模块 (file_uploader.py) — 多格式资料上传
   12. OCR 识别引擎 (ocr_engine.py) — PaddleOCR 营业执照/证书/通用识别
   13. 定时清理 (cleanup.py) — 24h 过期文件自动清理
+
+Day 4 新功能:
+  14. 标书整合引擎 (bid_merger.py) — 三套标书合并 + 封面 + 目录 + 页眉页脚
+  15. PDF 导出 (pdf_exporter.py) — LibreOffice/pandoc/weasyprint 多策略转换
+  16. 下载链接生成 — 24h 有效 token + bid_downloads 表
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -139,7 +144,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="投标公司赚钱引擎 API",
     description="MVP 版本 - 项目查询、中标预测、标书生成、资料上传、OCR识别",
-    version="1.4.0",  # bump for Day 3: file upload + OCR + cleanup
+    version="1.5.0",  # bump for Day 4: bid merger + PDF export + download links
     lifespan=lifespan
 )
 
@@ -320,6 +325,14 @@ def init_database():
         logger.info("标书表迁移完成")
     except Exception as e:
         logger.warning(f"标书表迁移失败（可能已存在）：{e}")
+
+    # Day 4 迁移：bid_downloads 表
+    try:
+        from migrate_day4 import migrate as migrate_day4
+        migrate_day4()
+        logger.info("Day 4 迁移完成 (bid_downloads 表)")
+    except Exception as e:
+        logger.warning(f"Day 4 迁移失败（可能已存在）：{e}")
 
 
 # ==================== 请求/响应模型 ====================
@@ -541,7 +554,7 @@ def predict_bid_success(request: PredictRequest):
     )
 
 
-@app.post("/api/bid/generate")
+@app.post("/api/bid/generate", dependencies=[Depends(verify_api_key)])
 def generate_bid_document(request: BidGenerateRequest):
     """
     生成投标文件（Word 格式）
@@ -2020,10 +2033,20 @@ def get_bid_requirements(project_id: int):
 
 # ==================== 任务 4: 数据匹配/自动填充 API ====================
 
+import uuid
 from pydantic import BaseModel
 
 class AutoFillRequest(BaseModel):
     bid_amount: Optional[float] = None
+
+
+class BidMergeRequest(BaseModel):
+    company_name: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    bid_amount: Optional[float] = 100000.0
+    project_type: Optional[str] = "物联网卡"
+    custom_fields: Optional[Dict[str, Any]] = None
 
 
 @app.post("/api/bid/auto-fill/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
@@ -2061,6 +2084,705 @@ def auto_fill_bid(project_id: int, request: AutoFillRequest = AutoFillRequest())
     except Exception as e:
         logger.error(f"自动填充失败: {e}")
         return error_response(500, "自动填充失败", str(e))
+
+
+# =====================================================================
+# 标书校验 & 评分 & 飞书通知 — Day 4 新增 API
+# =====================================================================
+
+from disqualification_checker import check_disqualification
+from scoring_report import generate_scoring_report
+from feishu_notifier import notify_completion
+
+
+class NotifyRequest(BaseModel):
+    webhook_url: Optional[str] = None
+
+
+@app.get("/api/bid/disqualification/{project_id}", response_model=dict,
+         dependencies=[Depends(verify_api_key)])
+def get_disqualification_result(project_id: int):
+    """
+    获取废标项检查结果。
+
+    检查项：
+    - 关键资质缺失（营业执照、资质证书等）
+    - 报价超过预算上限
+    - 必填项未完成
+    - 投标有效期不足
+    - 法定代表人或授权代表缺失
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 确认项目存在
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM bid_projects WHERE id = %s", (project_id,))
+            exists = cursor.fetchone()
+            cursor.close()
+
+        if not exists:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        result = check_disqualification(project_id, get_db_connection=get_db_connection)
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"废标检查失败: {e}")
+        return error_response(500, "废标检查失败", str(e))
+
+
+@app.get("/api/bid/scoring-report/{project_id}", response_model=dict,
+         dependencies=[Depends(verify_api_key)])
+def get_scoring_report(project_id: int):
+    """
+    获取评分覆盖率报告。
+
+    评分维度：
+    - 技术方案 (30%)
+    - 项目管理 (15%)
+    - 业绩经验 (15%)
+    - 团队资质 (10%)
+    - 质量保证 (10%)
+    - 价格 (20%)
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 确认项目存在
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM bid_projects WHERE id = %s", (project_id,))
+            exists = cursor.fetchone()
+            cursor.close()
+
+        if not exists:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        result = generate_scoring_report(project_id, get_db_connection=get_db_connection)
+
+        return {
+            "status": "success",
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"评分报告生成失败: {e}")
+        return error_response(500, "评分报告生成失败", str(e))
+
+
+@app.post("/api/bid/notify/{project_id}", response_model=dict,
+          dependencies=[Depends(verify_api_key)])
+def trigger_feishu_notify(project_id: int, request: NotifyRequest = NotifyRequest()):
+    """
+    手动触发飞书通知。
+
+    通知内容：
+    - 项目名称
+    - 完成时间
+    - 废标项检查结果
+    - 预估得分
+    - 下载链接
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 确认项目存在
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, title FROM bid_projects WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        # 构建 base URL（从环境变量或请求头推断）
+        base_url = os.environ.get("APP_BASE_URL", "")
+
+        success = notify_completion(
+            project_id=project_id,
+            webhook_url=request.webhook_url,
+            get_db_connection=get_db_connection,
+            base_url=base_url,
+        )
+
+        if success:
+            return {
+                "status": "success",
+                "message": f"已向飞书发送项目 '{row[1]}' 的完成通知",
+            }
+        else:
+            return error_response(500, "飞书通知发送失败", "请检查 Webhook URL 配置")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"飞书通知触发失败: {e}")
+        return error_response(500, "飞书通知触发失败", str(e))
+
+
+# =====================================================================
+# 标书 AI 内容生成 — Day 3 新增 API（P0 修复：接入路由）
+# =====================================================================
+
+from ai_generator import (
+    generate_technical_solution,
+    generate_project_understanding,
+    generate_work_plan,
+    generate_performance_guarantee,
+    generate_service_commitment,
+    generate_all,
+    record_generation_start,
+    record_generation_complete,
+    get_generation_status,
+    list_generations,
+)
+
+
+class AIGenerateRequest(BaseModel):
+    """AI 生成请求"""
+    modules: Optional[List[str]] = None  # 指定模块，不传则全量生成
+
+
+@app.post("/api/bid/ai-generate/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def ai_generate_endpoint(project_id: int, request: AIGenerateRequest = AIGenerateRequest()):
+    """
+    触发 AI 生成标书内容。
+
+    支持 5 个模块：
+    - technical_solution: 技术方案
+    - project_understanding: 项目理解
+    - work_plan: 工作规划
+    - performance_guarantee: 履约保障
+    - service_commitment: 服务承诺
+
+    不传 modules 参数则触发全量生成（5 个模块）。
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 查询项目信息
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                "SELECT id, title, parsed_data FROM bid_projects WHERE id = %s",
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        parsed_data = row["parsed_data"]
+        if isinstance(parsed_data, str):
+            parsed_data = json.loads(parsed_data)
+        elif parsed_data is None:
+            return error_response(400, "项目解析数据为空", "请先上传并解析招标文件")
+
+        # 记录生成开始
+        all_modules = [
+            "technical_solution",
+            "project_understanding",
+            "work_plan",
+            "performance_guarantee",
+            "service_commitment",
+        ]
+        modules = request.modules if request.modules else all_modules
+        task_id = record_generation_start(project_id, modules)
+
+        logger.info(f"AI 生成任务开始: task_id={task_id}, project_id={project_id}, modules={modules}")
+
+        # 执行生成
+        result = generate_all(project_id, parsed_data, get_db_connection)
+
+        # 记录生成完成
+        record_generation_complete(task_id, result)
+
+        return {
+            "status": "success",
+            "message": "AI 生成完成",
+            "task_id": task_id,
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI 生成失败: {e}")
+        return error_response(500, "AI 生成失败", str(e))
+
+
+@app.get("/api/bid/ai-status/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def ai_status_endpoint(project_id: int):
+    """
+    查询项目 AI 生成状态和结果。
+
+    返回该项目的最近一次生成任务状态。
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        # 查询项目是否存在
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                "SELECT id, title, status FROM bid_projects WHERE id = %s",
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        # 查询生成状态
+        generations = list_generations(project_id=project_id)
+
+        if not generations:
+            return {
+                "status": "success",
+                "data": {
+                    "project_id": project_id,
+                    "project_title": row["title"],
+                    "project_status": row["status"],
+                    "generation_status": "no_task",
+                    "message": "暂无 AI 生成任务",
+                },
+            }
+
+        # 返回最近一次任务
+        latest = generations[0]
+        return {
+            "status": "success",
+            "data": {
+                "project_id": project_id,
+                "project_title": row["title"],
+                "project_status": row["status"],
+                "task_id": latest.get("task_id"),
+                "generation_status": latest.get("status"),
+                "started_at": latest.get("started_at"),
+                "completed_at": latest.get("completed_at"),
+                "elapsed_seconds": latest.get("elapsed_seconds"),
+                "modules": latest.get("modules"),
+                "results": latest.get("results", {}),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询 AI 生成状态失败: {e}")
+        return error_response(500, "查询 AI 生成状态失败", str(e))
+
+
+# =====================================================================
+# 标书整合引擎 — Day 4 新增 API
+# =====================================================================
+
+@app.post("/api/bid/merge/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def merge_bid(project_id: int, request: BidMergeRequest = BidMergeRequest()):
+    """
+    合并三套标书为完整文档。
+
+    - 添加统一封面页
+    - 自动生成目录
+    - 统一页眉页脚
+    - 页码连续编号
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        from bid_merger import merge_bid_documents_to_default
+
+        # 获取项目信息
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("SELECT id, title FROM bid_projects WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            return error_response(404, "项目不存在", f"项目 ID {project_id} 不存在")
+
+        # 获取公司资料
+        company_name = request.company_name
+        contact_person = request.contact_person
+        contact_phone = request.contact_phone
+
+        if not company_name or not contact_person or not contact_phone:
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    cursor.execute(
+                        "SELECT company_name, contact_person, phone FROM company_profiles ORDER BY created_at DESC LIMIT 1"
+                    )
+                    comp_row = cursor.fetchone()
+                    cursor.close()
+                if comp_row:
+                    company_name = company_name or comp_row["company_name"]
+                    contact_person = contact_person or comp_row["contact_person"]
+                    contact_phone = contact_phone or comp_row["phone"]
+            except Exception as e:
+                logger.warning(f"获取公司资料失败: {e}")
+
+        company_name = company_name or "默认投标公司"
+        contact_person = contact_person or "张三"
+        contact_phone = contact_phone or "13800138000"
+
+        # 执行合并
+        result = merge_bid_documents_to_default(
+            project_id=project_id,
+            company_name=company_name,
+            contact_person=contact_person,
+            contact_phone=contact_phone,
+            bid_amount=request.bid_amount,
+            project_type=request.project_type,
+            custom_fields=request.custom_fields,
+            get_db_connection_func=get_db_connection,
+        )
+
+        # 更新项目状态
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE bid_projects SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (project_id,)
+                )
+                conn.commit()
+                cursor.close()
+        except Exception as e:
+            logger.warning(f"更新项目状态失败: {e}")
+
+        return {
+            "status": "success",
+            "message": "标书合并完成",
+            "data": result,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"合并标书失败: {e}")
+        return error_response(500, "合并标书失败", str(e))
+
+
+@app.get("/api/bid/merged/{project_id}", dependencies=[Depends(verify_api_key)])
+def get_merged_bid(project_id: int):
+    """
+    获取已合并的标书信息。
+    查找最新的合并文件。
+    """
+    try:
+        from pathlib import Path
+        output_dir = Path("/tmp/bid-outputs") / str(project_id)
+
+        if not output_dir.exists():
+            return error_response(404, "未找到合并文件", f"项目 {project_id} 没有合并输出")
+
+        # 查找最新的 docx 文件
+        docx_files = list(output_dir.glob("*.docx"))
+        if not docx_files:
+            return error_response(404, "未找到合并文件", f"项目 {project_id} 没有 .docx 输出")
+
+        latest = max(docx_files, key=lambda f: f.stat().st_mtime)
+
+        return {
+            "status": "success",
+            "data": {
+                "project_id": project_id,
+                "file_path": str(latest),
+                "file_name": latest.name,
+                "file_size_bytes": latest.stat().st_size,
+                "modified_at": datetime.fromtimestamp(latest.stat().st_mtime).isoformat(),
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"获取合并标书失败: {e}")
+        return error_response(500, "获取合并标书失败", str(e))
+
+
+# =====================================================================
+# PDF 导出 — Day 4 新增 API
+# =====================================================================
+
+@app.post("/api/bid/export-pdf/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def export_bid_pdf(project_id: int):
+    """
+    将合并后的标书导出为 PDF。
+
+    转换策略:
+      1. LibreOffice (headless) — 推荐
+      2. pandoc — 备选
+      3. weasyprint — 备选
+      4. docx2pdf — 备选
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        from pathlib import Path
+        from pdf_exporter import export_project_pdf, get_available_converters
+
+        output_dir = Path("/tmp/bid-outputs") / str(project_id)
+
+        if not output_dir.exists():
+            return error_response(404, "未找到标书文件",
+                                   f"请先调用 /api/bid/merge/{project_id} 合并标书")
+
+        # 查找最新的 docx 文件
+        docx_files = list(output_dir.glob("*.docx"))
+        if not docx_files:
+            return error_response(404, "未找到 docx 文件",
+                                   f"项目 {project_id} 没有 .docx 输出")
+
+        latest_docx = max(docx_files, key=lambda f: f.stat().st_mtime)
+
+        # 检查转换器
+        converters = get_available_converters()
+        available = [c for c in converters if c["status"] == "available"]
+        if not available:
+            return {
+                "status": "warning",
+                "message": "当前服务器没有可用的 PDF 转换工具",
+                "converters": converters,
+                "hint": "请安装 LibreOffice: apt install libreoffice",
+            }
+
+        # 执行转换
+        result = export_project_pdf(project_id, str(latest_docx))
+
+        return {
+            "status": "success",
+            "message": "PDF 导出完成",
+            "data": result,
+            "converters": converters,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"导出 PDF 失败: {e}")
+        return error_response(500, "导出 PDF 失败", str(e))
+
+
+@app.get("/api/bid/pdf/{project_id}", dependencies=[Depends(verify_api_key)])
+def get_bid_pdf(project_id: int):
+    """
+    获取项目的 PDF 文件信息。
+    """
+    try:
+        from pathlib import Path
+        output_dir = Path("/tmp/bid-outputs") / str(project_id)
+
+        if not output_dir.exists():
+            return error_response(404, "未找到文件", f"项目 {project_id} 没有输出文件")
+
+        pdf_files = list(output_dir.glob("*.pdf"))
+        if not pdf_files:
+            return error_response(404, "未找到 PDF 文件",
+                                   f"请先调用 /api/bid/export-pdf/{project_id} 导出 PDF")
+
+        latest = max(pdf_files, key=lambda f: f.stat().st_mtime)
+
+        return {
+            "status": "success",
+            "data": {
+                "project_id": project_id,
+                "file_path": str(latest),
+                "file_name": latest.name,
+                "file_size_bytes": latest.stat().st_size,
+                "modified_at": datetime.fromtimestamp(latest.stat().st_mtime).isoformat(),
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"获取 PDF 失败: {e}")
+        return error_response(500, "获取 PDF 失败", str(e))
+
+
+@app.get("/api/bid/converters", dependencies=[Depends(verify_api_key)])
+def list_converters():
+    """
+    列出当前可用的 PDF 转换工具。
+    """
+    try:
+        from pdf_exporter import get_available_converters
+        converters = get_available_converters()
+        return {
+            "status": "success",
+            "data": converters,
+        }
+    except Exception as e:
+        logger.error(f"获取转换器列表失败: {e}")
+        return error_response(500, "获取转换器列表失败", str(e))
+
+
+# =====================================================================
+# 下载链接生成 — Day 4 新增 API
+# =====================================================================
+
+@app.post("/api/bid/download/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def generate_download_link(project_id: int, file_type: str = "docx"):
+    """
+    生成临时下载链接（24 小时有效）。
+
+    - file_type: docx 或 pdf
+    """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
+
+    try:
+        from datetime import timedelta
+        from pathlib import Path
+
+        output_dir = Path("/tmp/bid-outputs") / str(project_id)
+
+        if not output_dir.exists():
+            return error_response(404, "未找到文件", f"项目 {project_id} 没有输出文件")
+
+        # 查找文件
+        ext = ".pdf" if file_type == "pdf" else ".docx"
+        files = list(output_dir.glob(f"*{ext}"))
+
+        if not files:
+            return error_response(404, f"未找到 {ext} 文件",
+                                   f"项目 {project_id} 没有 {ext} 输出。" +
+                                   (f"请先调用 /api/bid/export-pdf/{project_id} 导出 PDF" if file_type == "pdf" else "请先调用 /api/bid/merge/{project_id} 合并标书"))
+
+        latest = max(files, key=lambda f: f.stat().st_mtime)
+
+        # 生成 token
+        download_token = str(uuid.uuid4())
+        expires_at = datetime.now() + timedelta(hours=24)
+
+        # 存储到数据库
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO bid_downloads
+                    (download_token, project_id, file_path, file_type, expires_at)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (download_token, project_id, str(latest), file_type, expires_at)
+            )
+            conn.commit()
+            cursor.close()
+
+        # 构建下载 URL
+        base_url = os.environ.get("BASE_URL", "")
+        download_url = f"{base_url}/api/bid/download/{download_token}"
+
+        return {
+            "status": "success",
+            "message": "下载链接已生成（24 小时有效）",
+            "data": {
+                "download_url": download_url,
+                "token": download_token,
+                "file_name": latest.name,
+                "file_size_bytes": latest.stat().st_size,
+                "file_type": file_type,
+                "expires_at": expires_at.isoformat(),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成下载链接失败: {e}")
+        return error_response(500, "生成下载链接失败", str(e))
+
+
+@app.get("/api/bid/download/{token}")
+def download_file(token: str):
+    """
+    通过 token 下载文件。
+    - 验证 token 是否有效（未过期）
+    - 增加下载次数
+    - 返回文件流
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+
+    try:
+        from fastapi.responses import FileResponse
+
+        # 查询 token
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                """
+                SELECT id, download_token, project_id, file_path, file_type,
+                       expires_at, download_count
+                FROM bid_downloads
+                WHERE download_token = %s
+                """,
+                (token,)
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                cursor.close()
+                raise HTTPException(status_code=404, detail="下载链接不存在")
+
+            if row["expires_at"] < datetime.now():
+                cursor.close()
+                raise HTTPException(status_code=410, detail="下载链接已过期")
+
+            # 更新下载次数
+            cursor.execute(
+                """
+                UPDATE bid_downloads
+                SET download_count = download_count + 1,
+                    last_downloaded_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (row["id"],)
+            )
+            conn.commit()
+            cursor.close()
+
+        file_path = row["file_path"]
+        if not Path(file_path).exists():
+            raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
+
+        file_name = Path(file_path).name
+        media_type = (
+            "application/pdf" if row["file_type"] == "pdf"
+            else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+        return FileResponse(
+            path=file_path,
+            media_type=media_type,
+            filename=file_name,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"下载文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"下载失败: {str(e)}")
 
 
 if __name__ == "__main__":
