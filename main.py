@@ -1,13 +1,25 @@
 """
 投标公司赚钱引擎 MVP 后端 API
 FastAPI 单文件实现 - PostgreSQL 数据库
+
+Day 1 审查修复:
+  1. 连接池 (psycopg2.pool.ThreadedConnectionPool)
+  2. 初始化断裂 (lifespan 中调用迁移脚本)
+  3. UPDATE SQL 注入防护 (白名单)
+  4. API Key 认证
+  5. DELETE 资源泄漏修复 (try-finally)
+  6. CORS 配置 (已有 *)
+  7. 分页支持
+  8. UNIQUE 约束 (迁移脚本)
+  9. 统一错误响应
+  10. doc_parser O(n²) 优化
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import random
@@ -17,6 +29,7 @@ from io import BytesIO
 from fastapi.responses import StreamingResponse
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from pathlib import Path
 import logging
 import json
@@ -30,45 +43,89 @@ logger = logging.getLogger(__name__)
 
 # ==================== 数据库配置 ====================
 
+# 全局连接池
+db_pool: Optional[psycopg2.pool.ThreadedConnectionPool] = None
+
+
 def get_database_url():
     """获取数据库连接 URL"""
     url = os.environ.get('DATABASE_URL')
     if url:
         return url
-    # 本地开发默认（可选）
     return None
 
 
+@contextmanager
 def get_db_connection():
-    """获取数据库连接"""
-    db_url = get_database_url()
-    if not db_url:
-        raise RuntimeError("DATABASE_URL 环境变量未设置，无法连接数据库")
-    # psycopg2 需要 postgresql:// 前缀，Railway 通常提供 postgresql:// 或 postgres://
-    conn = psycopg2.connect(db_url)
-    return conn
+    """从连接池获取连接（上下文管理器，确保自动归还）"""
+    global db_pool
+    if db_pool is None:
+        raise RuntimeError("数据库连接池未初始化")
+    conn = db_pool.getconn()
+    try:
+        yield conn
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        db_pool.putconn(conn)
 
+
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """API Key 验证依赖"""
+    api_key = os.environ.get('API_KEY')
+    if api_key:
+        if not x_api_key or x_api_key != api_key:
+            raise HTTPException(status_code=401, detail="无效的 API Key")
+
+
+# ==================== 统一错误响应 ====================
+
+def error_response(code: int, message: str, detail: str = "") -> dict:
+    """统一错误响应格式"""
+    return {"code": code, "message": message, "detail": detail}
+
+
+# ==================== 应用生命周期 ====================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化数据库
+    global db_pool
     logger.info("应用启动中...")
+
+    # 初始化连接池
+    db_url = get_database_url()
+    if db_url:
+        min_conn = int(os.environ.get('DB_POOL_MIN', '5'))
+        max_conn = int(os.environ.get('DB_POOL_MAX', '20'))
+        db_pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=min_conn, maxconn=max_conn, dsn=db_url
+        )
+        logger.info(f"连接池初始化完成 (min={min_conn}, max={max_conn})")
+    else:
+        logger.warning("DATABASE_URL 未设置，连接池未初始化")
+
+    # 初始化数据库 + 迁移标书表
     init_database()
+
     logger.info("应用启动完成")
     yield
-    # 关闭时清理（如有需要）
+    # 关闭连接池
+    if db_pool:
+        db_pool.closeall()
+        logger.info("连接池已关闭")
     logger.info("应用关闭")
 
 
 app = FastAPI(
     title="投标公司赚钱引擎 API",
     description="MVP 版本 - 项目查询、中标预测、标书生成",
-    version="1.2.0",
+    version="1.3.0",  # bump for Day 1 fixes
     lifespan=lifespan
 )
 
-# 启用 CORS
+# CORS 配置（已存在，覆盖所有新增 API）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -124,110 +181,116 @@ async def serve_bid():
 
 
 def init_database():
-    """初始化数据库 - 创建表并加载初始数据"""
-    db_url = get_database_url()
-    if not db_url:
+    """初始化数据库 - 创建表、加载初始数据、执行迁移脚本"""
+    if db_pool is None:
         logger.warning("DATABASE_URL 未设置，跳过数据库初始化")
         return
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # 检查表是否存在
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables
-                WHERE table_name = 'bid_notices'
-            )
-        """)
-        table_exists = cursor.fetchone()[0]
-
-        if not table_exists:
-            logger.info("创建 bid_notices 表...")
-            cursor.execute('''
-                CREATE TABLE bid_notices (
-                    id SERIAL PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    region TEXT,
-                    budget REAL,
-                    deadline TEXT,
-                    description TEXT,
-                    source_url TEXT,
-                    source_site TEXT,
-                    source TEXT,
-                    category TEXT,
-                    publish_date TEXT,
-                    crawl_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    content_hash TEXT,
-                    project_code TEXT,
-                    status TEXT
-                )
-            ''')
-            conn.commit()
-            logger.info("bid_notices 表创建成功")
-        else:
-            # 迁移：检查并添加缺失的列
+            # 检查 bid_notices 表是否存在
             cursor.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'bid_notices'
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_name = 'bid_notices'
+                )
             """)
-            columns = [row[0] for row in cursor.fetchall()]
-            migration_cols = {
-                'source': 'TEXT',
-                'content_hash': 'TEXT',
-                'project_code': 'TEXT',
-                'status': 'TEXT'
-            }
-            for col_name, col_type in migration_cols.items():
-                if col_name not in columns:
-                    logger.info(f"添加 {col_name} 字段...")
-                    cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col_name} {col_type}")
-                    conn.commit()
+            table_exists = cursor.fetchone()[0]
 
-        # 检查数据是否为空
-        cursor.execute('SELECT COUNT(*) FROM bid_notices')
-        count = cursor.fetchone()[0]
-
-        if count == 0:
-            logger.info("数据库为空，加载初始数据...")
-            initial_data_path = Path(__file__).parent / 'initial_data.json'
-
-            if initial_data_path.exists():
-                with open(initial_data_path, 'r', encoding='utf-8') as f:
-                    initial_data = json.load(f)
-
-                for item in initial_data:
-                    cursor.execute('''
-                        INSERT INTO bid_notices
-                        (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ''', (
-                        item.get('title', ''),
-                        item.get('region', ''),
-                        item.get('budget'),
-                        item.get('deadline', ''),
-                        item.get('description', ''),
-                        item.get('source_url', ''),
-                        item.get('source_site', ''),
-                        item.get('source', ''),
-                        item.get('category', ''),
-                        item.get('publish_date', '')
-                    ))
-
+            if not table_exists:
+                logger.info("创建 bid_notices 表...")
+                cursor.execute('''
+                    CREATE TABLE bid_notices (
+                        id SERIAL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        region TEXT,
+                        budget REAL,
+                        deadline TEXT,
+                        description TEXT,
+                        source_url TEXT,
+                        source_site TEXT,
+                        source TEXT,
+                        category TEXT,
+                        publish_date TEXT,
+                        crawl_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        content_hash TEXT,
+                        project_code TEXT,
+                        status TEXT
+                    )
+                ''')
                 conn.commit()
-                logger.info(f"已加载 {len(initial_data)} 条初始数据")
+                logger.info("bid_notices 表创建成功")
             else:
-                logger.warning("初始数据文件不存在")
-        else:
-            logger.info(f"数据库已有 {count} 条数据，跳过初始化")
+                # 迁移：检查并添加缺失的列
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'bid_notices'
+                """)
+                columns = [row[0] for row in cursor.fetchall()]
+                migration_cols = {
+                    'source': 'TEXT',
+                    'content_hash': 'TEXT',
+                    'project_code': 'TEXT',
+                    'status': 'TEXT'
+                }
+                for col_name, col_type in migration_cols.items():
+                    if col_name not in columns:
+                        logger.info(f"添加 {col_name} 字段...")
+                        cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col_name} {col_type}")
+                        conn.commit()
 
-        cursor.close()
-        conn.close()
-        logger.info("数据库初始化完成")
+            # 检查数据是否为空
+            cursor.execute('SELECT COUNT(*) FROM bid_notices')
+            count = cursor.fetchone()[0]
+
+            if count == 0:
+                logger.info("数据库为空，加载初始数据...")
+                initial_data_path = Path(__file__).parent / 'initial_data.json'
+
+                if initial_data_path.exists():
+                    with open(initial_data_path, 'r', encoding='utf-8') as f:
+                        initial_data = json.load(f)
+
+                    for item in initial_data:
+                        cursor.execute('''
+                            INSERT INTO bid_notices
+                            (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ''', (
+                            item.get('title', ''),
+                            item.get('region', ''),
+                            item.get('budget'),
+                            item.get('deadline', ''),
+                            item.get('description', ''),
+                            item.get('source_url', ''),
+                            item.get('source_site', ''),
+                            item.get('source', ''),
+                            item.get('category', ''),
+                            item.get('publish_date', '')
+                        ))
+
+                    conn.commit()
+                    logger.info(f"已加载 {len(initial_data)} 条初始数据")
+                else:
+                    logger.warning("初始数据文件不存在")
+            else:
+                logger.info(f"数据库已有 {count} 条数据，跳过初始化")
+
+            cursor.close()
+            logger.info("数据库初始化完成")
 
     except Exception as e:
         logger.error(f"数据库初始化失败：{e}")
+
+    # 执行标书表迁移脚本（修复 #2：初始化断裂）
+    try:
+        from migrate_bid_tables import migrate as migrate_bid
+        migrate_bid()
+        logger.info("标书表迁移完成")
+    except Exception as e:
+        logger.warning(f"标书表迁移失败（可能已存在）：{e}")
 
 
 # ==================== 请求/响应模型 ====================
@@ -262,21 +325,21 @@ class BidGenerateRequest(BaseModel):
 def root():
     """API 首页"""
     db_stats = {"total": 0}
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM bid_notices')
-        row = cursor.fetchone()
-        if row:
-            db_stats["total"] = row[0]
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        logger.warning(f"数据库查询失败: {e}")
+    if db_pool:
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM bid_notices')
+                row = cursor.fetchone()
+                if row:
+                    db_stats["total"] = row[0]
+                cursor.close()
+        except Exception as e:
+            logger.warning(f"数据库查询失败: {e}")
 
     return {
         "message": "投标公司赚钱引擎 API - 真实数据版本",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "database": {
             "total_notices": db_stats["total"],
             "status": "active" if db_stats["total"] > 0 else "empty"
@@ -292,7 +355,7 @@ def root():
     }
 
 
-@app.get("/api/projects", response_model=List[dict])
+@app.get("/api/projects")
 def get_projects(category: Optional[str] = None, location: Optional[str] = None, limit: int = 50):
     """
     获取项目列表（真实招标数据）
@@ -301,54 +364,54 @@ def get_projects(category: Optional[str] = None, location: Optional[str] = None,
     - location: 按地点筛选（可选）
     - limit: 返回数量限制（默认 50）
     """
+    if not db_pool:
+        return error_response(503, "数据库未连接", "DATABASE_URL 未设置")
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # 构建查询
-        query = '''
-            SELECT id, title as name, budget, deadline, category, region as location,
-                   description, source_url, source_site, source, publish_date
-            FROM bid_notices
-            WHERE 1=1
-        '''
-        params = []
+            query = '''
+                SELECT id, title as name, budget, deadline, category, region as location,
+                       description, source_url, source_site, source, publish_date
+                FROM bid_notices
+                WHERE 1=1
+            '''
+            params = []
 
-        if category:
-            query += ' AND category LIKE %s'
-            params.append(f'%{category}%')
+            if category:
+                query += ' AND category LIKE %s'
+                params.append(f'%{category}%')
 
-        if location:
-            query += ' AND region LIKE %s'
-            params.append(f'%{location}%')
+            if location:
+                query += ' AND region LIKE %s'
+                params.append(f'%{location}%')
 
-        query += ' ORDER BY deadline ASC LIMIT %s'
-        params.append(limit)
+            query += ' ORDER BY deadline ASC LIMIT %s'
+            params.append(limit)
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
 
-        # 转换为字典列表
-        results = []
-        for row in rows:
-            results.append({
-                'id': row['id'],
-                'name': row['name'],
-                'budget': row['budget'],
-                'deadline': row['deadline'],
-                'category': row['category'],
-                'location': row['location'],
-                'description': row['description'],
-                'source_url': row['source_url'],
-                'source_site': row['source_site'],
-                'source': row['source'],
-                'publish_date': row['publish_date']
-            })
+            results = []
+            for row in rows:
+                results.append({
+                    'id': row['id'],
+                    'name': row['name'],
+                    'budget': row['budget'],
+                    'deadline': row['deadline'],
+                    'category': row['category'],
+                    'location': row['location'],
+                    'description': row['description'],
+                    'source_url': row['source_url'],
+                    'source_site': row['source_site'],
+                    'source': row['source'],
+                    'publish_date': row['publish_date']
+                })
 
-        return results
+            return results
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取项目失败：{e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -363,7 +426,6 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
     - project_type: 项目类型（物联网卡/布控球）
     """
     try:
-        import json
         data_file = Path(__file__).parent / 'data.json'
 
         if not data_file.exists():
@@ -372,7 +434,6 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
         with open(data_file, 'r', encoding='utf-8') as f:
             all_projects = json.load(f)
 
-        # 筛选逻辑
         if not keywords and not project_type:
             return all_projects[:15]
 
@@ -409,13 +470,14 @@ def predict_bid_success(request: PredictRequest):
 
     返回高/中/低三种预测结果
     """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute('SELECT id, title FROM bid_notices WHERE id = %s', (request.project_id,))
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT id, title FROM bid_notices WHERE id = %s', (request.project_id,))
+            row = cursor.fetchone()
+            cursor.close()
 
         if not row:
             raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
@@ -427,7 +489,6 @@ def predict_bid_success(request: PredictRequest):
         logger.error(f"查询项目失败：{e}")
         raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
 
-    # 随机生成预测结果
     predictions = [
         {"level": "高", "confidence": 0.85, "advice": "建议积极投标，中标概率较大"},
         {"level": "中", "confidence": 0.55, "advice": "可考虑投标，需优化报价策略"},
@@ -453,15 +514,16 @@ def generate_bid_document(request: BidGenerateRequest):
     支持物联网卡和布控球两种模板
     返回可下载的 .docx 文件
     """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute(
-            'SELECT id, title, budget, deadline, category, region, description FROM bid_notices WHERE id = %s',
-            (request.project_id,))
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                'SELECT id, title, budget, deadline, category, region, description FROM bid_notices WHERE id = %s',
+                (request.project_id,))
+            row = cursor.fetchone()
+            cursor.close()
 
         if not row:
             raise HTTPException(status_code=404, detail=f"项目 ID {request.project_id} 不存在")
@@ -481,10 +543,8 @@ def generate_bid_document(request: BidGenerateRequest):
         logger.error(f"查询项目失败：{e}")
         raise HTTPException(status_code=500, detail=f"数据库查询失败：{str(e)}")
 
-    # 根据项目类型选择模板
     template_type = request.project_type if request.project_type in ['物联网卡', '布控球'] else '物联网卡'
 
-    # 加载模板文件
     template = None
     if template_type == '物联网卡':
         template_path = Path(__file__).parent / 'templates' / 'iot-sim-card-template.json'
@@ -495,7 +555,6 @@ def generate_bid_document(request: BidGenerateRequest):
         with open(template_path, 'r', encoding='utf-8') as f:
             template = json.load(f)
 
-    # 创建 Word 文档
     from docx.shared import Pt, Cm, Inches, RGBColor
     from docx.oxml.ns import qn
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -503,7 +562,6 @@ def generate_bid_document(request: BidGenerateRequest):
     from docx.enum.section import WD_ORIENT
 
     def _set_font(run, name='宋体', size=12, bold=False, color=None):
-        """统一设置字体（中文+英文）"""
         run.font.name = name
         run.font.size = Pt(size)
         run.font.bold = bold
@@ -516,7 +574,6 @@ def generate_bid_document(request: BidGenerateRequest):
                               font_name='宋体', font_size=12, bold=False,
                               space_before=None, space_after=None, color=None,
                               first_line_indent=None):
-        """添加带样式的段落"""
         para = doc.add_paragraph(text, style=style)
         para.alignment = alignment
         for run in para.runs:
@@ -531,7 +588,6 @@ def generate_bid_document(request: BidGenerateRequest):
 
     def _add_styled_heading(doc, text, level=1, font_name='黑体', font_size=None,
                             space_before=12, space_after=6):
-        """添加带样式的标题"""
         heading = doc.add_heading(text, level=level)
         heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
         for run in heading.runs:
@@ -542,7 +598,6 @@ def generate_bid_document(request: BidGenerateRequest):
         return heading
 
     def _add_kv_para(doc, key, value, key_width=4, font_size=11):
-        """添加键值对段落（key 加粗）"""
         para = doc.add_paragraph()
         para.paragraph_format.space_before = Pt(2)
         para.paragraph_format.space_after = Pt(2)
@@ -554,7 +609,6 @@ def generate_bid_document(request: BidGenerateRequest):
         return para
 
     def _add_bullet(doc, text, level=0, font_size=11):
-        """添加项目符号段落"""
         para = doc.add_paragraph()
         indent = 1 + level * 1.5
         para.paragraph_format.left_indent = Cm(indent)
@@ -568,7 +622,6 @@ def generate_bid_document(request: BidGenerateRequest):
         return para
 
     def _add_simple_table(doc, headers, rows, col_widths=None):
-        """添加格式化的简单表格"""
         table = doc.add_table(rows=1 + len(rows), cols=len(headers))
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         for i, h in enumerate(headers):
@@ -595,7 +648,6 @@ def generate_bid_document(request: BidGenerateRequest):
                     row.cells[ci].width = Cm(w)
         return table
 
-    # ========== 设置文档样式 ==========
     doc = Document()
 
     for section in doc.sections:
@@ -615,7 +667,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     now_str = datetime.now().strftime('%Y年%m月%d日')
 
-    # ========== 封面 ==========
+    # 封面
     doc.add_paragraph()
     doc.add_paragraph()
     cover_title = doc.add_paragraph()
@@ -651,7 +703,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 目录页 ==========
+    # 目录页
     _add_styled_heading(doc, '目    录', level=1, font_size=18)
     doc.add_paragraph()
     toc_items = [
@@ -674,7 +726,7 @@ def generate_bid_document(request: BidGenerateRequest):
         _set_font(run_text, size=12)
     doc.add_page_break()
 
-    # ========== 第一章：投标函 ==========
+    # 第一章：投标函
     _add_styled_heading(doc, '第一章  投标函', level=1)
     doc.add_paragraph()
 
@@ -712,7 +764,7 @@ def generate_bid_document(request: BidGenerateRequest):
     _add_para_with_style(doc, f'联系电话：{request.contact_phone}', font_size=12, first_line_indent=0, space_before=6, space_after=6)
     _add_para_with_style(doc, f'日期：{now_str}', font_size=12, first_line_indent=0, space_before=6, space_after=6)
 
-    # ========== 第二章：法定代表人授权书 ==========
+    # 第二章：法定代表人授权书
     _add_styled_heading(doc, '第二章  法定代表人授权书', level=1)
     doc.add_paragraph()
 
@@ -735,7 +787,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第三章：投标报价一览表 ==========
+    # 第三章：投标报价一览表
     _add_styled_heading(doc, '第三章  投标报价一览表', level=1)
     doc.add_paragraph()
 
@@ -789,7 +841,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第四章：技术方案 ==========
+    # 第四章：技术方案
     _add_styled_heading(doc, '第四章  技术方案', level=1)
     doc.add_paragraph()
 
@@ -869,7 +921,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第五章：项目实施计划 ==========
+    # 第五章：项目实施计划
     _add_styled_heading(doc, '第五章  项目实施计划', level=1)
     doc.add_paragraph()
 
@@ -921,7 +973,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第六章：售后服务方案 ==========
+    # 第六章：售后服务方案
     _add_styled_heading(doc, '第六章  售后服务方案', level=1)
     doc.add_paragraph()
 
@@ -957,7 +1009,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第七章：企业资质与业绩 ==========
+    # 第七章：企业资质与业绩
     _add_styled_heading(doc, '第七章  企业资质与业绩', level=1)
     doc.add_paragraph()
 
@@ -1008,7 +1060,7 @@ def generate_bid_document(request: BidGenerateRequest):
 
     doc.add_page_break()
 
-    # ========== 第八章：项目理解与需求分析 ==========
+    # 第八章：项目理解与需求分析
     _add_styled_heading(doc, '第八章  项目理解与需求分析', level=1)
     doc.add_paragraph()
 
@@ -1042,7 +1094,7 @@ def generate_bid_document(request: BidGenerateRequest):
     _add_bullet(doc, '成本优势明显：规模采购带来的价格优势')
     _add_bullet(doc, '质量保证体系：通过多项国际认证')
 
-    # ========== 附录：生成信息 ==========
+    # 附录
     doc.add_page_break()
     _add_styled_heading(doc, '附    录', level=1)
     doc.add_paragraph()
@@ -1056,9 +1108,8 @@ def generate_bid_document(request: BidGenerateRequest):
     doc.save(buffer)
     buffer.seek(0)
 
-    import urllib.parse as up
     filename = f"{template_type}_bid_{project['id']}_{request.company_name}.docx"
-    encoded_filename = up.quote(filename, safe='')
+    encoded_filename = urllib.parse.quote(filename, safe='')
 
     return StreamingResponse(
         buffer,
@@ -1070,28 +1121,25 @@ def generate_bid_document(request: BidGenerateRequest):
 @app.get("/api/stats")
 def get_stats():
     """获取数据库统计信息"""
+    if not db_pool:
+        return {"status": "error", "code": 503, "message": "数据库未连接", "detail": "DATABASE_URL 未设置"}
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # 总数
-        cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
-        total = cursor.fetchone()["count"]
+            cursor.execute('SELECT COUNT(*) as count FROM bid_notices')
+            total = cursor.fetchone()["count"]
 
-        # 按来源统计
-        cursor.execute('SELECT source_site, COUNT(*) as count FROM bid_notices GROUP BY source_site')
-        by_source = {row["source_site"]: row["count"] for row in cursor.fetchall()}
+            cursor.execute('SELECT source_site, COUNT(*) as count FROM bid_notices GROUP BY source_site')
+            by_source = {row["source_site"]: row["count"] for row in cursor.fetchall()}
 
-        # 按地区统计
-        cursor.execute('SELECT region, COUNT(*) as count FROM bid_notices WHERE region != \'\' GROUP BY region ORDER BY count DESC LIMIT 10')
-        by_region = {row["region"]: row["count"] for row in cursor.fetchall()}
+            cursor.execute('SELECT region, COUNT(*) as count FROM bid_notices WHERE region != \'\' GROUP BY region ORDER BY count DESC LIMIT 10')
+            by_region = {row["region"]: row["count"] for row in cursor.fetchall()}
 
-        # 最新更新时间
-        cursor.execute('SELECT MAX(crawl_time) as last_update FROM bid_notices')
-        last_update = cursor.fetchone()["last_update"]
+            cursor.execute('SELECT MAX(crawl_time) as last_update FROM bid_notices')
+            last_update = cursor.fetchone()["last_update"]
 
-        cursor.close()
-        conn.close()
+            cursor.close()
 
         return {
             "total": total,
@@ -1102,7 +1150,7 @@ def get_stats():
         }
     except Exception as e:
         logger.error(f"获取统计失败：{e}")
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "code": 500, "message": "获取统计失败", "detail": str(e)}
 
 
 @app.post("/api/crawl")
@@ -1126,46 +1174,45 @@ def trigger_crawl():
 
 @app.post("/api/reload-data")
 def reload_initial_data():
-    """手动重新加载初始数据（用于 Railway 重置后恢复数据）"""
+    """手动重新加载初始数据"""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # 清空现有数据
-        cursor.execute("DELETE FROM bid_notices")
-        conn.commit()
-        logger.info("已清空现有数据...")
+            cursor.execute("DELETE FROM bid_notices")
+            conn.commit()
+            logger.info("已清空现有数据...")
 
-        # 加载初始数据
-        initial_data_path = Path(__file__).parent / 'initial_data.json'
+            initial_data_path = Path(__file__).parent / 'initial_data.json'
 
-        if not initial_data_path.exists():
-            raise HTTPException(status_code=500, detail="初始数据文件不存在")
+            if not initial_data_path.exists():
+                raise HTTPException(status_code=500, detail="初始数据文件不存在")
 
-        with open(initial_data_path, 'r', encoding='utf-8') as f:
-            initial_data = json.load(f)
+            with open(initial_data_path, 'r', encoding='utf-8') as f:
+                initial_data = json.load(f)
 
-        for item in initial_data:
-            cursor.execute('''
-                INSERT INTO bid_notices
-                (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (
-                item.get('title', ''),
-                item.get('region', ''),
-                item.get('budget'),
-                item.get('deadline', ''),
-                item.get('description', ''),
-                item.get('source_url', ''),
-                item.get('source_site', ''),
-                item.get('source', ''),
-                item.get('category', ''),
-                item.get('publish_date', '')
-            ))
+            for item in initial_data:
+                cursor.execute('''
+                    INSERT INTO bid_notices
+                    (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (
+                    item.get('title', ''),
+                    item.get('region', ''),
+                    item.get('budget'),
+                    item.get('deadline', ''),
+                    item.get('description', ''),
+                    item.get('source_url', ''),
+                    item.get('source_site', ''),
+                    item.get('source', ''),
+                    item.get('category', ''),
+                    item.get('publish_date', '')
+                ))
 
-        conn.commit()
-        cursor.close()
-        conn.close()
+            conn.commit()
+            cursor.close()
 
         logger.info(f"已重新加载 {len(initial_data)} 条初始数据")
 
@@ -1183,66 +1230,66 @@ def reload_initial_data():
 
 @app.post("/api/projects/bulk-import")
 def bulk_import_projects(data: List[Dict[str, Any]]):
-    """批量导入项目数据（用于从本地同步数据到线上）"""
+    """批量导入项目数据"""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # 检查并添加缺失的列
-        cursor.execute("""
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'bid_notices'
-        """)
-        columns = [row[0] for row in cursor.fetchall()]
-        alter_cols = ['project_code', 'status', 'source']
-        for col in alter_cols:
-            if col not in columns:
-                cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col} TEXT")
-                conn.commit()
+            cursor.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'bid_notices'
+            """)
+            columns = [row[0] for row in cursor.fetchall()]
+            alter_cols = ['project_code', 'status', 'source']
+            for col in alter_cols:
+                if col not in columns:
+                    cursor.execute(f"ALTER TABLE bid_notices ADD COLUMN {col} TEXT")
+                    conn.commit()
 
-        imported = 0
-        skipped = 0
+            imported = 0
+            skipped = 0
 
-        for item in data:
-            code = item.get('project_code', '')
-            if code:
-                cursor.execute("SELECT id FROM bid_notices WHERE project_code = %s", (code,))
+            for item in data:
+                code = item.get('project_code', '')
+                if code:
+                    cursor.execute("SELECT id FROM bid_notices WHERE project_code = %s", (code,))
+                    if cursor.fetchone():
+                        skipped += 1
+                        continue
+
+                title = item.get('title', '')
+                publish_date = item.get('publish_date', '')
+                cursor.execute(
+                    "SELECT id FROM bid_notices WHERE title = %s AND publish_date = %s",
+                    (title, publish_date))
                 if cursor.fetchone():
                     skipped += 1
                     continue
 
-            title = item.get('title', '')
-            publish_date = item.get('publish_date', '')
-            cursor.execute(
-                "SELECT id FROM bid_notices WHERE title = %s AND publish_date = %s",
-                (title, publish_date))
-            if cursor.fetchone():
-                skipped += 1
-                continue
+                cursor.execute('''
+                    INSERT INTO bid_notices
+                    (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date, project_code, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (
+                    title,
+                    item.get('region', ''),
+                    item.get('budget', 0),
+                    item.get('deadline', ''),
+                    item.get('description', ''),
+                    item.get('source_url', ''),
+                    item.get('source_site', ''),
+                    item.get('source', ''),
+                    item.get('category', ''),
+                    publish_date,
+                    code,
+                    item.get('status', '')
+                ))
+                imported += 1
 
-            cursor.execute('''
-                INSERT INTO bid_notices
-                (title, region, budget, deadline, description, source_url, source_site, source, category, publish_date, project_code, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (
-                title,
-                item.get('region', ''),
-                item.get('budget', 0),
-                item.get('deadline', ''),
-                item.get('description', ''),
-                item.get('source_url', ''),
-                item.get('source_site', ''),
-                item.get('source', ''),
-                item.get('category', ''),
-                publish_date,
-                code,
-                item.get('status', '')
-            ))
-            imported += 1
-
-        conn.commit()
-        cursor.close()
-        conn.close()
+            conn.commit()
+            cursor.close()
 
         return {
             "status": "success",
@@ -1253,6 +1300,383 @@ def bulk_import_projects(data: List[Dict[str, Any]]):
     except Exception as e:
         logger.error(f"批量导入失败：{e}")
         raise HTTPException(status_code=500, detail=f"导入失败：{str(e)}")
+
+
+# =====================================================================
+# 标书 AI 生成系统 — Day 1 新增 API（已修复审查问题）
+# =====================================================================
+
+# ---- Pydantic 模型 ----
+
+class CompanyProfileCreate(BaseModel):
+    company_name: str
+    credit_code: Optional[str] = None
+    legal_representative: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    bank_info: Optional[Dict[str, Any]] = None
+    qualifications: Optional[List[Any]] = None
+
+
+class CompanyProfileUpdate(BaseModel):
+    company_name: Optional[str] = None
+    credit_code: Optional[str] = None
+    legal_representative: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    bank_info: Optional[Dict[str, Any]] = None
+    qualifications: Optional[List[Any]] = None
+
+
+class BidProjectCreate(BaseModel):
+    title: str
+    source_file_name: Optional[str] = None
+    file_path: Optional[str] = None
+    parsed_data: Optional[Dict[str, Any]] = None
+    status: Optional[str] = "draft"
+
+
+# ---- 公司资料管理 API（修复 #4：添加 API Key 认证）----
+
+@app.post("/api/company/profile", response_model=dict, dependencies=[Depends(verify_api_key)])
+def create_company_profile(profile: CompanyProfileCreate):
+    """创建公司资料（需要 API Key）"""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            cursor.execute(
+                """
+                INSERT INTO company_profiles
+                    (company_name, credit_code, legal_representative, contact_person,
+                     phone, email, address, bank_info, qualifications)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, company_name, credit_code, legal_representative,
+                          contact_person, phone, email, address, bank_info, qualifications,
+                          created_at, updated_at
+                """,
+                (
+                    profile.company_name,
+                    profile.credit_code,
+                    profile.legal_representative,
+                    profile.contact_person,
+                    profile.phone,
+                    profile.email,
+                    profile.address,
+                    json.dumps(profile.bank_info) if profile.bank_info else None,
+                    json.dumps(profile.qualifications) if profile.qualifications else None,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        return {"status": "success", "data": dict(row)}
+
+    except psycopg2.errors.UniqueViolation:
+        raise HTTPException(status_code=409, detail="该公司资料已存在（信用代码重复）")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"创建公司资料失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/company/profile", response_model=dict, dependencies=[Depends(verify_api_key)])
+def get_company_profiles(name: Optional[str] = None, limit: int = 20):
+    """查询公司资料列表（需要 API Key）"""
+    if not db_pool:
+        return {"status": "error", "code": 503, "message": "数据库未连接", "detail": "DATABASE_URL 未设置"}
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            if name:
+                cursor.execute(
+                    """
+                    SELECT id, company_name, credit_code, legal_representative,
+                           contact_person, phone, email, address, bank_info, qualifications,
+                           created_at, updated_at
+                    FROM company_profiles
+                    WHERE company_name LIKE %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (f"%{name}%", limit),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT id, company_name, credit_code, legal_representative,
+                           contact_person, phone, email, address, bank_info, qualifications,
+                           created_at, updated_at
+                    FROM company_profiles
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+
+            rows = cursor.fetchall()
+            cursor.close()
+
+        return {
+            "status": "success",
+            "count": len(rows),
+            "data": [dict(r) for r in rows],
+        }
+
+    except Exception as e:
+        logger.error(f"查询公司资料失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/company/profile/{profile_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def update_company_profile(profile_id: int, profile: CompanyProfileUpdate):
+    """
+    更新公司资料（需要 API Key）
+    修复 #3：使用白名单过滤字段名，防止 SQL 注入
+    修复 #5：使用 try-finally 确保连接正确归还
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            # 检查是否存在
+            cursor.execute("SELECT id FROM company_profiles WHERE id = %s", (profile_id,))
+            if not cursor.fetchone():
+                cursor.close()
+                raise HTTPException(status_code=404, detail=f"公司资料 ID {profile_id} 不存在")
+
+            # 修复 #3：白名单过滤字段名，防止 SQL 注入
+            ALLOWED_UPDATE_FIELDS = {
+                "company_name", "credit_code", "legal_representative",
+                "contact_person", "phone", "email", "address"
+            }
+            updates = []
+            values = []
+            field_map = {
+                "company_name": profile.company_name,
+                "credit_code": profile.credit_code,
+                "legal_representative": profile.legal_representative,
+                "contact_person": profile.contact_person,
+                "phone": profile.phone,
+                "email": profile.email,
+                "address": profile.address,
+            }
+            for field, val in field_map.items():
+                if field not in ALLOWED_UPDATE_FIELDS:
+                    continue  # 白名单外字段直接跳过
+                if val is not None:
+                    updates.append(f"{field} = %s")
+                    values.append(val)
+
+            if profile.bank_info is not None:
+                updates.append("bank_info = %s")
+                values.append(json.dumps(profile.bank_info))
+            if profile.qualifications is not None:
+                updates.append("qualifications = %s")
+                values.append(json.dumps(profile.qualifications))
+
+            if not updates:
+                cursor.close()
+                raise HTTPException(status_code=400, detail="没有提供要更新的字段")
+
+            updates.append("updated_at = CURRENT_TIMESTAMP")
+            values.append(profile_id)
+
+            cursor.execute(
+                f"UPDATE company_profiles SET {', '.join(updates)} WHERE id = %s "
+                "RETURNING id, company_name, credit_code, legal_representative, "
+                "contact_person, phone, email, address, bank_info, qualifications, "
+                "created_at, updated_at",
+                values,
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        return {"status": "success", "data": dict(row)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新公司资料失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/company/profile/{profile_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
+def delete_company_profile(profile_id: int):
+    """
+    删除公司资料（需要 API Key）
+    修复 #5：使用上下文管理器确保连接总是被归还
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM company_profiles WHERE id = %s RETURNING id", (profile_id,))
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"公司资料 ID {profile_id} 不存在")
+
+        return {"status": "success", "message": f"已删除公司资料 ID {profile_id}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除公司资料失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---- 标书项目 API ----
+
+@app.post("/api/bid/project", response_model=dict, dependencies=[Depends(verify_api_key)])
+def create_bid_project(project: BidProjectCreate):
+    """创建标书项目（需要 API Key）"""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            cursor.execute(
+                """
+                INSERT INTO bid_projects
+                    (title, source_file_name, file_path, parsed_data, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, title, source_file_name, file_path, parsed_data,
+                          status, created_at, updated_at
+                """,
+                (
+                    project.title,
+                    project.source_file_name,
+                    project.file_path,
+                    json.dumps(project.parsed_data) if project.parsed_data else None,
+                    project.status,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        return {"status": "success", "data": dict(row)}
+
+    except Exception as e:
+        logger.error(f"创建标书项目失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/bid/projects", response_model=dict)
+def list_bid_projects(
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """
+    标书项目列表
+    修复 #7：添加分页支持
+    """
+    if not db_pool:
+        return {"status": "error", "code": 503, "message": "数据库未连接", "detail": "DATABASE_URL 未设置"}
+    try:
+        # 分页参数校验
+        if page < 1:
+            page = 1
+        if page_size < 1:
+            page_size = 1
+        if page_size > 100:
+            page_size = 100
+        offset = (page - 1) * page_size
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            base_query = "FROM bid_projects"
+            where_clause = ""
+            params: list = []
+
+            if status:
+                where_clause = "WHERE status = %s"
+                params.append(status)
+
+            # 查询总数
+            count_query = f"SELECT COUNT(*) as total {base_query} {where_clause}"
+            cursor.execute(count_query, params)
+            total = cursor.fetchone()["total"]
+
+            # 查询分页数据
+            data_query = f"""
+                SELECT id, title, source_file_name, file_path, parsed_data,
+                       status, created_at, updated_at
+                {base_query} {where_clause}
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(data_query, params + [page_size, offset])
+            rows = cursor.fetchall()
+            cursor.close()
+
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+
+        return {
+            "status": "success",
+            "count": len(rows),
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "data": [dict(r) for r in rows],
+        }
+
+    except Exception as e:
+        logger.error(f"查询标书项目列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/bid/project/{project_id}", response_model=dict)
+def get_bid_project(project_id: int):
+    """查询单个标书项目"""
+    if not db_pool:
+        return {"status": "error", "code": 503, "message": "数据库未连接", "detail": "DATABASE_URL 未设置"}
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            cursor.execute(
+                """
+                SELECT id, title, source_file_name, file_path, parsed_data,
+                       status, created_at, updated_at
+                FROM bid_projects
+                WHERE id = %s
+                """,
+                (project_id,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"项目 ID {project_id} 不存在")
+
+        return {"status": "success", "data": dict(row)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"查询标书项目失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
