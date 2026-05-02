@@ -129,7 +129,6 @@ def get_project_info(project_id: int, get_db_connection_func) -> Optional[Dict[s
 PLACEHOLDER_MAP = {
     # 公司信息
     "投标人名称": ("company_profile", "company_name"),
-    "投标人名称": ("company_profile", "company_name"),
     "公司名称": ("company_profile", "company_name"),
     "企业名称": ("company_profile", "company_name"),
     "统一社会信用代码": ("company_profile", "credit_code"),

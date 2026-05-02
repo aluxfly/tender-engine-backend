@@ -13,6 +13,11 @@ Day 1 审查修复:
   8. UNIQUE 约束 (迁移脚本)
   9. 统一错误响应
   10. doc_parser O(n²) 优化
+
+Day 3 新功能:
+  11. 文件上传模块 (file_uploader.py) — 多格式资料上传
+  12. OCR 识别引擎 (ocr_engine.py) — PaddleOCR 营业执照/证书/通用识别
+  13. 定时清理 (cleanup.py) — 24h 过期文件自动清理
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -73,10 +78,9 @@ def get_db_connection():
 
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
     """API Key 验证依赖"""
-    api_key = os.environ.get('API_KEY')
-    if api_key:
-        if not x_api_key or x_api_key != api_key:
-            raise HTTPException(status_code=401, detail="无效的 API Key")
+    api_key = os.environ.get('API_KEY', 'dev-key-2026')
+    if not x_api_key or x_api_key != api_key:
+        raise HTTPException(status_code=401, detail="无效的 API Key")
 
 
 # ==================== 统一错误响应 ====================
@@ -109,19 +113,33 @@ async def lifespan(app: FastAPI):
     # 初始化数据库 + 迁移标书表
     init_database()
 
+    # 启动定时清理任务
+    try:
+        from cleanup import start_cleanup_scheduler
+        start_cleanup_scheduler()
+        logger.info("定时清理任务已注册")
+    except Exception as e:
+        logger.warning(f"定时清理任务启动失败: {e}")
+
     logger.info("应用启动完成")
     yield
     # 关闭连接池
     if db_pool:
         db_pool.closeall()
         logger.info("连接池已关闭")
+    # 停止定时清理
+    try:
+        from cleanup import stop_cleanup_scheduler
+        stop_cleanup_scheduler()
+    except Exception:
+        pass
     logger.info("应用关闭")
 
 
 app = FastAPI(
     title="投标公司赚钱引擎 API",
-    description="MVP 版本 - 项目查询、中标预测、标书生成",
-    version="1.3.0",  # bump for Day 1 fixes
+    description="MVP 版本 - 项目查询、中标预测、标书生成、资料上传、OCR识别",
+    version="1.4.0",  # bump for Day 3: file upload + OCR + cleanup
     lifespan=lifespan
 )
 
@@ -136,6 +154,17 @@ app.add_middleware(
 
 # 静态文件目录
 STATIC_DIR = Path(__file__).parent / 'static'
+
+
+# ==================== Day 3 路由注册 ====================
+
+from file_uploader import router as material_router
+from ocr_engine import router as ocr_router
+
+app.include_router(material_router)
+app.include_router(ocr_router)
+
+logger.info("Day 3 路由已注册: /api/bid/material, /api/bid/ocr")
 
 
 # ==================== 前端页面路由 ====================
@@ -461,6 +490,12 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
     except Exception as e:
         logger.error(f"筛选项目失败：{e}")
         return []
+
+
+@app.get("/api/bids")
+def get_bids_alias(status: Optional[str] = None, limit: int = 50):
+    """/api/bids 别名 → 转发到 /api/projects（前端兼容）"""
+    return get_projects(category=None, location=None, limit=limit)
 
 
 @app.post("/api/predict", response_model=PredictResponse)
@@ -1579,7 +1614,7 @@ def create_bid_project(project: BidProjectCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/bid/projects", response_model=dict)
+@app.get("/api/bid/projects", response_model=dict, dependencies=[Depends(verify_api_key)])
 def list_bid_projects(
     status: Optional[str] = None,
     page: int = 1,
@@ -1646,7 +1681,7 @@ def list_bid_projects(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/bid/project/{project_id}", response_model=dict)
+@app.get("/api/bid/project/{project_id}", response_model=dict, dependencies=[Depends(verify_api_key)])
 def get_bid_project(project_id: int):
     """查询单个标书项目"""
     if not db_pool:
