@@ -25,7 +25,7 @@ Day 4 新功能:
   16. 下载链接生成 — 24h 有效 token + bid_downloads 表
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -537,6 +537,114 @@ def filter_projects(keywords: Optional[str] = None, project_type: Optional[str] 
 def get_bids_alias(status: Optional[str] = None, limit: int = 50):
     """/api/bids 别名 → 转发到 /api/projects（前端兼容）"""
     return get_projects(category=None, location=None, limit=limit)
+
+
+@app.post("/api/bids")
+async def create_bid(
+    name: str = Form(...),
+    template: str = Form("默认模板"),
+    code: Optional[str] = Form(None),
+    files: List[UploadFile] = File(default=[]),
+):
+    """
+    创建标书项目（前端兼容入口）
+
+    接收 FormData:
+    - name: 标书名（必填）
+    - template: 模板类型（可选）
+    - code: 项目编码（可选）
+    - files: 上传文件列表（可选，多文件）
+
+    返回 JSON: { id, bid_id, data: { id, name, status } }
+    """
+    import time
+    import re as _re
+
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="数据库未连接")
+    try:
+        # 处理文件上传
+        file_paths = []
+        if files:
+            upload_dir = Path(f"/tmp/bid-uploads/new_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            for f in files:
+                if f.filename:
+                    safe_name = _re.sub(
+                        r'[^\w\-\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]',
+                        '_', Path(f.filename).stem
+                    ) + Path(f.filename).suffix
+                    fpath = upload_dir / f"{int(time.time())}_{safe_name}"
+                    content = await f.read()
+                    fpath.write_bytes(content)
+                    file_paths.append(str(fpath))
+                    logger.info(f"[create_bid] 文件已保存: {fpath}")
+
+        # 构建 parsed_data
+        parsed_data = {"template": template}
+        if code:
+            parsed_data["project_code"] = code
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(
+                """
+                INSERT INTO bid_projects
+                    (title, source_file_name, file_path, parsed_data, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    name,
+                    ", ".join(Path(fp).name for fp in file_paths) if file_paths else None,
+                    ", ".join(file_paths) if file_paths else None,
+                    json.dumps(parsed_data, ensure_ascii=False),
+                    "draft",
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            cursor.close()
+
+        bid_id = row["id"]
+
+        return {
+            "status": "success",
+            "message": "标书创建成功",
+            "id": bid_id,
+            "bid_id": bid_id,
+            "data": {"id": bid_id, "name": name, "status": "draft"},
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"创建标书失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
+
+
+# ---- 兼容别名：前端可能调用的不同端点 ----
+
+@app.post("/api/bid-generate")
+async def create_bid_generate_alias(
+    name: str = Form(...),
+    template: str = Form("默认模板"),
+    code: Optional[str] = Form(None),
+    files: List[UploadFile] = File(default=[]),
+):
+    """/api/bid-generate 别名 → 转发到 POST /api/bids（前端兼容）"""
+    return await create_bid(name=name, template=template, code=code, files=files)
+
+
+@app.post("/api/bids/create")
+async def create_bid_create_alias(
+    name: str = Form(...),
+    template: str = Form("默认模板"),
+    code: Optional[str] = Form(None),
+    files: List[UploadFile] = File(default=[]),
+):
+    """/api/bids/create 别名 → 转发到 POST /api/bids（前端兼容）"""
+    return await create_bid(name=name, template=template, code=code, files=files)
 
 
 @app.post("/api/predict", response_model=PredictResponse)
@@ -1789,7 +1897,7 @@ def get_bid_project(project_id: int):
 # 标书 AI 生成系统 — Day 2 新增 API
 # =====================================================================
 
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Form
 import shutil
 import tempfile
 
